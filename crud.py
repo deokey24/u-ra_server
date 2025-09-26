@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import date,datetime
+from datetime import date,datetime, timedelta
 import hashlib
 import os
 from dotenv import load_dotenv
@@ -149,9 +149,7 @@ def list_active_reservations(store_id: int):
     today = date.today()  # 예: 2025-09-27
 
     # UTC기준이라 한국 시간으로 수정
-    now = datetime.utcnow().replace(microsecond=0)
-    now = now.replace(hour=now.hour+9 if now.hour+9 < 24 else now.hour+9-24)
-    now = now.strftime("%Y-%m-%d %H:%M:%S")
+    now = (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S")
 
     query = """
         SELECT table_num,
@@ -166,7 +164,7 @@ def list_active_reservations(store_id: int):
 
     cur.execute(query, (now, store_id, now, now))
     rows = cur.fetchall()
-    print(rows)
+    print(now)
     conn.close()
 
     return [(r[0], int(r[1])) for r in rows]
