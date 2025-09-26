@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>관리자 예약 목록</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>예약 목록</h1>
+    <table>
+        <tr>
+            <th>ID</th><th>테이블</th><th>전화번호</th>
+            <th>메뉴</th><th>가격</th><th>시작</th>
+            <th>종료</th><th>승인번호</th><th>삭제</th>
+        </tr>
+        {% for r in rows %}
+        <tr>
+            <td>{{r[0]}}</td><td>{{r[1]}}</td><td>{{r[2]}}</td>
+            <td>{{r[3]}}</td><td>{{r[4]}}</td><td>{{ r[5] | replace("T", " ") }}</td>
+            <td>{{ r[6] | replace("T", " ") }}</td><td>{{r[7]}}</td>
+            <td>
+                <form method="post" action="/delete/{{r[0]}}">
+                    <button type="submit">삭제</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

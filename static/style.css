@@ -1,0 +1,418 @@
+/* ===== 기본 공통 스타일 ===== */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    margin: 0;
+    padding-top: 40px; /* 헤더 높이만큼 아래로 밀기 */
+}
+
+/* ===== 로그인/회원가입 전용 ===== */
+body.auth {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    width: 100%;
+    max-width: 420px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 480px;
+}
+
+.header {
+    background: #007bff;
+    color: white;
+    padding: 20px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: bold;
+}
+
+.content {
+    flex: 1;
+    padding: 25px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+input {
+    width: 100%;
+    padding: 14px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+button {
+    width: 100%;
+    padding: 16px;
+    margin-top: 15px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+a {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    color: #007bff;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.error {
+    color: red;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+/* 로그인 유지 체크박스 */
+.remember-me {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+}
+
+.remember-me input[type="checkbox"] {
+  margin: 0;
+  width: auto;
+  height: auto;
+  transform: scale(1.1);
+}
+
+/* ===== 관리자 페이지 전용 ===== */
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #222;
+  color: white;
+  padding: 10px 15px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.header-left,
+.header-center,
+.header-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.header-center {
+  justify-content: center;
+}
+
+.header-left {
+  justify-content: flex-start;
+}
+
+.header-right {
+  justify-content: flex-end;
+}
+
+/* 헤더 기본 레이아웃 */
+.main-header {
+  position: fixed;        /* 화면 상단 고정 */
+  top: 0;                 /* 항상 최상단 */
+  left: 0;
+  width: 100%;            /* 전체 너비 차지 */
+  height: 60px;           /* 헤더 높이 (기존 절반 줄인 값) */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #222;
+  color: white;
+  padding: 0 15px;        /* 위아래 패딩 없애고 좌우만 */
+  font-size: 18px;
+  font-weight: bold;
+  z-index: 1000;          /* 다른 요소 위에 표시 */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3); /* 살짝 그림자 */
+}
+
+.header-left,
+.header-center,
+.header-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.header-center {
+  justify-content: center;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;   /* 세로 가운데 */
+  justify-content: flex-start;
+}
+
+.header-right {
+  justify-content: flex-end;
+}
+
+.hamburger {
+  font-size: 20px;          /* 아이콘 크기 */
+  background: none;         /* 파란 배경 제거 */
+  border: none;             /* 버튼 테두리 제거 */
+  color: white;             /* 아이콘 색상 */
+  cursor: pointer;
+  display: flex;
+  align-items: center;      /* 세로 중앙 */
+  justify-content: center;
+  padding: 0;               /* 기본 패딩 제거 */
+  margin: 0;                /* 기본 여백 제거 */
+  height: 100%;             /* 헤더 높이에 맞춤 */
+  line-height: 1;           /* 줄높이 보정 */
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: normal;
+  background: #444;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.header-left {
+  flex: 0.3;   /* 1/4 크기 정도 (나머지 비율에 맞게 조절 가능) */
+  justify-content: flex-start;
+}
+
+.header-center {
+  flex: 2;     /* 가운데 영역을 더 넓게 */
+  justify-content: center;
+}
+
+.header-right {
+  flex: 1;     /* 우측 영역은 적당히 */
+  justify-content: flex-end;
+}
+
+
+.header-center {
+  justify-content: center;
+}
+
+.header-left {
+  justify-content: flex-start;
+}
+
+.header-right {
+  justify-content: flex-start;
+}
+
+.hamburger {
+  font-size: 20px;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  margin-left: -4px;   /* ⬅️ 버튼을 더 좌측으로 이동 */
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: normal;
+  background: #444;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.user-name {
+  font-size: 16px;
+  font-weight: normal;
+  background: #444;
+  padding: 5px 10px;
+  border-radius: 6px;
+}
+
+/* 관리자 페이지 본문 */
+main.content {
+  max-width: 1000px;
+  margin: 20px auto;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* 버튼 & 테이블 */
+#buttons {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+#buttons button {
+  width: auto;            /* ⬅️ 버튼이 가로 크기에 맞게 줄어듦 */
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  background-color: #1E90FF;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#buttons button.active {
+  background-color: #0056b3;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+table th, table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+table th {
+  background-color: #f2f2f2;
+}
+
+/* 사이드바 */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: -220px;
+  width: 220px;
+  height: 100%;
+  background: #333;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  padding-top: 60px;
+  transition: left 0.3s ease;
+  z-index: 1001; /* 오버레이보다 위 */
+}
+
+/* 사이드바 활성화 상태 */
+.sidebar.active {
+  left: 0;
+}
+
+/* 오버레이 (배경 클릭 영역) */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  z-index: 1000;
+}
+
+.sidebar-overlay.active {
+  display: block;
+}
+
+
+/* 사이드바 메뉴 링크 */
+.sidebar a {
+  padding: 15px 20px;
+  text-decoration: none;
+  color: white;
+  font-size: 16px;
+  border-bottom: 1px solid #444;
+}
+
+.sidebar a:hover {
+  background: #007bff;
+}
+
+/* 날짜 달력 */
+
+.filter-box {
+  display: flex;
+  justify-content: center;  /* 가운데 정렬 */
+  align-items: center;      /* 세로 중앙 정렬 */
+  gap: 20px;                /* 라벨 사이 간격 */
+  margin: 20px 0;
+}
+
+.filter-box label {
+  display: flex;
+  align-items: center;
+  gap: 6px; /* "시작일:" 과 input 사이 간격 */
+}
+
+/* === stores.html 버튼 전용 스타일 === */
+form[action="/save_store"] button,
+form[action="/assign_store"] button,
+form[action="/delete_store"] button {
+  width: auto;          /* 전역 100% 해제 */
+  padding: 6px 12px;    /* 아담한 크기 */
+  font-size: 13px;
+  margin: 2px 4px;
+  border-radius: 5px;
+  cursor: pointer;
+  border: none;
+}
+
+/* 저장 버튼 (파랑) */
+form[action="/save_store"] button {
+  background-color: #007bff;
+  color: #fff;
+}
+
+form[action="/save_store"] button:hover {
+  background-color: #0056b3;
+}
+
+/* 변경 버튼 (초록) */
+form[action="/assign_store"] button {
+  background-color: #28a745;
+  color: #fff;
+}
+
+form[action="/assign_store"] button:hover {
+  background-color: #1e7e34;
+}
+
+/* 삭제 버튼 (빨강) */
+form[action="/delete_store"] button {
+  background-color: #dc3545;
+  color: #fff;
+}
+
+form[action="/delete_store"] button:hover {
+  background-color: #a71d2a;
+}

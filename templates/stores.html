@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>점포 관리</h1>
+
+<!-- ✅ 점포 추가/수정 -->
+<h2>점포 추가 / 수정</h2>
+<form method="post" action="/save_store">
+  <label>ID: <input type="number" name="id"></label>
+  <label>이름: <input type="text" name="name" required></label>
+  <label>위치: <input type="text" name="location" required></label>
+  <button type="submit">저장</button>
+  <small>(ID를 입력하면 해당 점포 수정, 비우면 새 점포 추가)</small>
+</form>
+
+<!-- ✅ 점포 목록 -->
+<h2>점포 목록</h2>
+<table>
+  <thead>
+    <tr><th>ID</th><th>이름</th><th>위치</th><th>관리</th></tr>
+  </thead>
+  <tbody>
+    {% for s in stores %}
+    <tr>
+      <td>{{ s[0] }}</td>
+      <td>{{ s[1] }}</td>
+      <td>{{ s[2] }}</td>
+      <td>
+        <form method="post" action="/delete_store" style="display:inline;">
+          <input type="hidden" name="store_id" value="{{ s[0] }}">
+          <button type="submit" onclick="return confirm('삭제하시겠습니까?')">삭제</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- ✅ 유저 점포 할당 -->
+<h2>유저 점포 지정</h2>
+<table>
+  <thead>
+    <tr><th>유저</th><th>이름</th><th>현재 점포</th><th>변경</th></tr>
+  </thead>
+  <tbody>
+    {% for u in users %}
+    <tr>
+      <td>{{ u[1] }}</td>
+      <td>{{ u[2] }}</td>
+      <td>{{ u[3] }}</td>
+      <td>
+        <form method="post" action="/assign_store">
+          <input type="hidden" name="user_id" value="{{ u[0] }}">
+          <select name="store_id">
+            {% for s in stores %}
+              <option value="{{ s[0] }}" {% if s[0] == u[3] %}selected{% endif %}>
+                {{ s[1] }}
+              </option>
+            {% endfor %}
+          </select>
+          <button type="submit">변경</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

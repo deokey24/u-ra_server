@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>관리자 매출 내역</h1>
+
+<!-- 지점 선택 -->
+<div id="store-selector" style="margin:10px 0;">
+  <label>지점 선택:
+    <select id="store-id">
+      {% for s in stores %}
+        <option value="{{ s[0] }}">{{ s[1] }} ({{ s[2] }})</option>
+      {% endfor %}
+    </select>
+  </label>
+</div>
+
+<!-- 날짜 범위 입력 -->
+<div class="filter-box">
+  <label>시작 <input type="date" id="start-date"></label>
+  <label>종료 <input type="date" id="end-date"></label>
+</div>
+
+<!-- 날짜 필터 버튼 -->
+<div id="buttons" style="margin:10px 0;">
+  <button onclick="setFilter('today')">오늘</button>
+  <button onclick="setFilter('yesterday')">어제</button>
+  <button onclick="setFilter('thisweek')">이번주</button>
+  <button onclick="setFilter('lastweek')">지난주</button>
+  <button onclick="setFilter('thismonth')">당월</button>
+  <button onclick="setFilter('lastmonth')">전월</button>
+</div>
+
+<!-- 조회 버튼 -->
+<div>
+  <button style="margin-top:10px;" onclick="applyFilter()">조회</button>
+</div>
+
+<!-- 총 매출 -->
+<div id="total-price" style="margin:15px 0; font-weight:bold; font-size:16px; text-align:right;">
+  총 매출: 0원
+</div>
+
+<!-- 예약 테이블 -->
+<table id="reservations">
+  <thead>
+    <tr>
+      <th>지점</th>
+      <th>테이블</th>
+      <th>전화번호</th>
+      <th>가격</th>
+      <th>시작</th>
+      <th>삭제</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+let selectedFilter = "today"; // 기본값
+
+function formatDateLocal(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function setFilter(type) {
+  selectedFilter = type;
+  // 버튼 하이라이트 처리
+  document.querySelectorAll("#buttons button").forEach(btn => btn.classList.remove("active"));
+  event.target.classList.add("active");
+
+  // 달력 비우기 (버튼 모드)
+  document.getElementById("start-date").value = "";
+  document.getElementById("end-date").value = "";
+}
+
+function getDateRange(type) {
+  let today = new Date();
+  let start, end;
+
+  if (type === "today") {
+    start = end = formatDateLocal(today);
+  } else if (type === "yesterday") {
+    let y = new Date(today);
+    y.setDate(y.getDate() - 1);
+    start = end = formatDateLocal(y);
+  } else if (type === "thisweek") {
+    let day = today.getDay(); // 0=일, 1=월
+    let monday = new Date(today);
+    monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
+    let sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    start = formatDateLocal(monday);
+    end = formatDateLocal(sunday);
+  } else if (type === "lastweek") {
+    let day = today.getDay();
+    let monday = new Date(today);
+    monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1) - 7);
+    let sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    start = formatDateLocal(monday);
+    end = formatDateLocal(sunday);
+  } else if (type === "thismonth") {
+    let first = new Date(today.getFullYear(), today.getMonth(), 1);
+    let last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    start = formatDateLocal(first);
+    end = formatDateLocal(last);
+  } else if (type === "lastmonth") {
+    let first = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    let last = new Date(today.getFullYear(), today.getMonth(), 0);
+    start = formatDateLocal(first);
+    end = formatDateLocal(last);
+  }
+
+  return { start, end };
+}
+
+async function loadData(start, end, storeId) {
+  let params = `start=${start}&end=${end}&store_id=${storeId}`;
+  const res = await fetch(`/api/reservations/range?${params}`);
+  const data = await res.json();
+
+  let tbody = document.querySelector("#reservations tbody");
+  tbody.innerHTML = "";
+
+  let total = 0;
+
+  data.forEach(r => {
+    total += parseInt(r[4]) || 0;
+
+    let row = `<tr>
+        <td>${storeId}</td>
+        <td>${r[1]}</td>
+        <td>${r[2]}</td>
+        <td>${r[4]}</td>
+        <td>${r[5]}</td>
+        <td>
+        <form method="post" action="/delete_reservation" onsubmit="return confirm('삭제하시겠습니까?');">
+            <input type="hidden" name="rid" value="${r[0]}"> <!-- r[0] = 예약 id -->
+            <button type="submit">삭제</button>
+        </form>
+        </td>
+    </tr>`;
+    tbody.innerHTML += row;
+  });
+
+  document.getElementById("total-price").innerText = `총 매출: ${total.toLocaleString()}원`;
+}
+
+function applyFilter() {
+  let storeId = document.getElementById("store-id").value;
+
+  // 달력 직접 선택이 있으면 그걸 우선
+  let start = document.getElementById("start-date").value;
+  let end = document.getElementById("end-date").value;
+
+  if (start && end) {
+    loadData(start, end, storeId);
+  } else {
+    const {start: s, end: e} = getDateRange(selectedFilter);
+    loadData(s, e, storeId);
+  }
+}
+
+// 페이지 로드시 오늘 기본 선택
+window.onload = () => {
+  document.querySelector("#buttons button").classList.add("active");
+  applyFilter();
+};
+</script>
+{% endblock %}

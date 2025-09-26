@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{{ title if title else "무인탁구24 관리자" }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+
+</head>
+<body>
+  <!-- ✅ 공통 헤더 -->
+  <header class="main-header">
+    <div class="header-left">
+      <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
+    </div>
+    <div class="header-center">
+      무인탁구24 관리자
+    </div>
+    <div class="header-right">
+      {% if user %}
+      <span class="user-name">{{ user }} 님</span>
+      {% endif %}
+    </div>
+  </header>
+
+  <!-- ✅ 사이드바 -->
+  <nav id="sidebar" class="sidebar">
+    <a href="/admin">매출 내역</a>
+    <a href="/table">테이블 현황</a>
+    <a href="/store/menus">메뉴관리</a>
+    {% if store_id == 0 %}
+    <a href="/stores">점포관리</a>
+    <a href="/admin/all_list">전체매출</a>
+    {% endif %}
+    <a href="/logout">로그아웃</a>
+  </nav>
+
+  <div id="sidebar-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- ✅ 메인 컨텐츠 -->
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+
+<script>
+function toggleSidebar() {
+  document.getElementById("sidebar").classList.toggle("active");
+  document.getElementById("sidebar-overlay").classList.toggle("active");
+}
+
+function closeSidebar() {
+  document.getElementById("sidebar").classList.remove("active");
+  document.getElementById("sidebar-overlay").classList.remove("active");
+}
+</script>
+</body>
+</html>

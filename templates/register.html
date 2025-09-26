@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>회원가입</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+
+</head>
+<body>
+  <div class="container">
+    <div class="header">회원가입</div>
+    <div class="content">
+      {% if error %}
+      <p class="error">{{ error }}</p>
+      {% endif %}
+      <form method="post" action="/register">
+        <input type="text" name="name" placeholder="이름" required>
+        <input type="text" name="username" placeholder="아이디" required>
+        <input type="password" name="password" placeholder="비밀번호" required>
+        <input type="password" name="password2" placeholder="비밀번호 확인" required>
+        <button type="submit">가입하기</button>
+      </form>
+      <a href="/">로그인</a>
+    </div>
+  </div>
+</body>
+</html>
