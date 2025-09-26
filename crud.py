@@ -147,7 +147,11 @@ def list_active_reservations(store_id: int):
 
     # 서버 현재 날짜/시간
     today = date.today()  # 예: 2025-09-27
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # UTC기준이라 한국 시간으로 수정
+    now = datetime.utcnow().replace(microsecond=0)
+    now = now.replace(hour=now.hour+9 if now.hour+9 < 24 else now.hour+9-24)
+    now = now.strftime("%Y-%m-%d %H:%M:%S")
 
     query = """
         SELECT table_num,
