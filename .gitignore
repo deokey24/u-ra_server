@@ -1,0 +1,25 @@
+# Python 캐시/빌드
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# 가상환경
+venv64/
+ENV/
+.env/
+
+# IDE 설정
+.vscode/
+.idea/
+
+# OS 파일
+.DS_Store
+Thumbs.db
+
+# 데이터베이스 (SQLite 파일은 업로드하지 않는 게 안전)
+*.db
+
+# 로그
+*.log
