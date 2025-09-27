@@ -1,25 +1,53 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>테이블 현황</h1>
+{% set store_id = request.cookies.get("store_id") %}
+<h1 style="text-align:center;">{{ store_id }}번 지점 테이블 현황</h1>
 
-<div style="display:flex; flex-direction:column; gap:20px; align-items:center;">
+<div style="display:flex; flex-direction:column; gap:20px; align-items:center; margin-top:20px;">
   {% for i in range(1, 5) %}
-    {% if i in active_tables %}
-      {% set minutes = active_tables[i] %}
-      <div style="width:120px; height:120px; display:flex; flex-direction:column;
-                  justify-content:center; align-items:center; border:1px solid #333;
-                  border-radius:8px; background-color:#b3e5fc; font-weight:bold; font-size:18px;">
-        <div>{{ i }}번</div>
-        <div style="font-size:14px;">남은시간 {{ minutes }}분</div>
+    <!-- ✅ 테이블 박스 + 버튼을 가로로 배치 -->
+    <div style="display:flex; flex-direction:row; gap:15px; align-items:center;">
+
+      <!-- 상태 박스 -->
+      {% if i in active_tables %}
+        {% set minutes = active_tables[i] %}
+        <div style="width:120px; height:120px; display:flex; flex-direction:column;
+                    justify-content:center; align-items:center; border:1px solid #333;
+                    border-radius:8px; background-color:#b3e5fc; font-weight:bold; font-size:18px;
+                    text-align:center;">
+          <div>{{ i }}번</div>
+          <div style="font-size:14px;">남은시간 {{ minutes }}분</div>
+        </div>
+      {% else %}
+        <div style="width:120px; height:120px; display:flex; flex-direction:column;
+                    justify-content:center; align-items:center; border:1px solid #333;
+                    border-radius:8px; background-color:white; font-weight:bold; font-size:18px;
+                    text-align:center;">
+          <div>{{ i }}번</div>
+          <div style="font-size:14px; color:#666;">대기중</div>
+        </div>
+      {% endif %}
+
+      <!-- 버튼 박스 (옆에 세로로 정렬) -->
+      <div style="display:flex; flex-direction:row; gap:40px; align-items:center;">
+        <form action="/blind/{{ store_id }}/{{ i }}/open" method="post"
+              onsubmit="return confirm('{{ i }}번 테이블 블라인드를 열까요?');">
+          <button type="submit" 
+                  style="width:80px; height:40px; display:flex; align-items:center; justify-content:center;">
+            열기
+          </button>
+        </form>
+
+        <form action="/blind/{{ store_id }}/{{ i }}/close" method="post"
+              onsubmit="return confirm('{{ i }}번 테이블 블라인드를 닫을까요?');">
+          <button type="submit" 
+                  style="width:80px; height:40px; display:flex; align-items:center; justify-content:center;">
+            닫기
+          </button>
+        </form>
       </div>
-    {% else %}
-      <div style="width:120px; height:120px; display:flex; flex-direction:column;
-                  justify-content:center; align-items:center; border:1px solid #333;
-                  border-radius:8px; background-color:white; font-weight:bold; font-size:18px;">
-        <div>{{ i }}번</div>
-        <div style="font-size:14px; color:#666;">대기중</div>
-      </div>
-    {% endif %}
+
+    </div>
   {% endfor %}
 </div>
 

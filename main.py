@@ -1,12 +1,17 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from datetime import datetime
 import crud,sqlite3,hashlib,base64
+from typing import Dict, Tuple
 
 app = FastAPI()
 crud.init_db()
+
+
+# (store_id, table_num) → WebSocket 연결 관리
+clients: Dict[Tuple[int, int], WebSocket] = {}
 
 # 정적 파일 & 템플릿 설정
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -143,13 +148,13 @@ def login(
 
         response.set_cookie("session_user", encoded_username, **cookie_args)
         response.set_cookie("session_name", encoded_name, **cookie_args)
-        response.set_cookie("store_id", str(store_id), **cookie_args)
+        response.set_cookie("store_id", str(store_id), **cookie_args)   # ✅ store_id 저장
 
         return response
     else:
         return templates.TemplateResponse(
             "login.html",
-            {"request": request, "error": "아이디 또는 비밀번호가 올바르지 않습니다.", "user": None},
+            {"request": request, "error": "아이디 또는 비밀번호가 올바르지 않습니다."},
         )
 
 # ✅ 회원가입 처리
@@ -308,8 +313,9 @@ def api_tables(request: Request):
 
     return templates.TemplateResponse(
         "table.html",
-        {"request": request, "active_tables": active_tables}   # 반드시 request 전달 필요
+        {"request": request, "active_tables": active_tables, "store_id": store_id}   # 반드시 request 전달 필요
     )
+
 # 예약삭제
 @app.post("/delete_reservation")
 def delete_reservation_api(request: Request, rid: int = Form(...)):
@@ -395,3 +401,43 @@ def delete_menu_action(request: Request, menu_id: int = Form(...)):
     conn.close()
 
     return RedirectResponse(url="/store/menus", status_code=303)
+
+# ------------------------
+# WebSocket 엔드포인트
+# ------------------------
+@app.websocket("/ws/{store_id}/{table_num}")
+async def websocket_endpoint(websocket: WebSocket, store_id: int, table_num: int):
+    key = (store_id, table_num)
+    await websocket.accept()
+    clients[key] = websocket
+    print(f"[WS CONNECT] store={store_id}, table={table_num}")
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+            print(f"[FROM KIOSK] store={store_id}, table={table_num}, msg={data}")
+    except WebSocketDisconnect:
+        print(f"[WS DISCONNECT] store={store_id}, table={table_num}")
+        if key in clients:
+            del clients[key]
+
+# ------------------------
+# REST API: 블라인드 제어
+# ------------------------
+@app.post("/blind/{store_id}/{table_num}/open")
+async def open_blind(store_id: int, table_num: int):
+    key = (store_id, table_num)
+    if key in clients:
+        await clients[key].send_text("open")
+        return {"status": "sent", "cmd": "open"}
+    return RedirectResponse(url="/table", status_code=303)
+
+
+@app.post("/blind/{store_id}/{table_num}/close")
+async def close_blind(store_id: int, table_num: int):
+    key = (store_id, table_num)
+    if key in clients:
+        await clients[key].send_text("close")
+        return {"status": "sent", "cmd": "close"}
+    return RedirectResponse(url="/table", status_code=303)
+
