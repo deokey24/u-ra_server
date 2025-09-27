@@ -128,6 +128,9 @@ def list_reservations_by_range(start_date: str, end_date: str, store_id: int):
            FROM reservations
            WHERE date(start_time) BETWEEN ? AND ?
              AND store_id = ?
+             AND auth_no IS NOT NULL 
+             AND auth_no != ''
+             AND auth_no != 'None'
            ORDER BY start_time DESC""",
         (start_date, end_date, store_id),
     )
