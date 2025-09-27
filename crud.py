@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 
 
-DB_PATH = "kiosk.db"
+DB_PATH = "/var/data/kiosk.db" #서버 DB파일 경로
 
 load_dotenv()
 
