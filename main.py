@@ -429,7 +429,6 @@ async def open_blind(store_id: int, table_num: int):
     key = (store_id, table_num)
     if key in clients:
         await clients[key].send_text("open")
-        return {"status": "sent", "cmd": "open"}
     return RedirectResponse(url="/table", status_code=303)
 
 
@@ -438,6 +437,5 @@ async def close_blind(store_id: int, table_num: int):
     key = (store_id, table_num)
     if key in clients:
         await clients[key].send_text("close")
-        return {"status": "sent", "cmd": "close"}
     return RedirectResponse(url="/table", status_code=303)
 
