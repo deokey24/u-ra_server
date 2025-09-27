@@ -11,7 +11,7 @@ crud.init_db()
 # 정적 파일 & 템플릿 설정
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-DB_PATH = "kiosk.db"
+DB_PATH = "/var/data/kiosk.db" #서버 DB파일 경로
 
 
 def hash_password(password: str):
