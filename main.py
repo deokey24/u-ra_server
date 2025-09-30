@@ -413,13 +413,10 @@ async def websocket_endpoint(websocket: WebSocket, store_id: int, table_num: int
     print(f"[WS CONNECT] store={store_id}, table={table_num}")
 
     try:
-        while True:
-            data = await websocket.receive_text()
-            print(f"[FROM KIOSK] store={store_id}, table={table_num}, msg={data}")
-    except WebSocketDisconnect:
+        await websocket.wait_closed()  # 그냥 끊길 때까지 대기
+    finally:
         print(f"[WS DISCONNECT] store={store_id}, table={table_num}")
-        if key in clients:
-            del clients[key]
+        clients.pop(key, None)
 
 # ------------------------
 # REST API: 블라인드 제어
