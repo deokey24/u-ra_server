@@ -413,10 +413,10 @@ async def websocket_endpoint(websocket: WebSocket, store_id: int, table_num: int
     print(f"[WS CONNECT] store={store_id}, table={table_num}")
 
     try:
-        await websocket.wait_closed()  # 그냥 끊길 때까지 대기
+        await websocket.wait_closed()
     finally:
         print(f"[WS DISCONNECT] store={store_id}, table={table_num}")
-        clients.pop(key, None)
+        clients.pop(key, None)  # 안전하게 삭제
 
 # ------------------------
 # REST API: 블라인드 제어
