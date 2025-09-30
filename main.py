@@ -413,26 +413,43 @@ async def websocket_endpoint(websocket: WebSocket, store_id: int, table_num: int
     print(f"[WS CONNECT] store={store_id}, table={table_num}")
 
     try:
-        await websocket.wait_closed()
-    finally:
+        while True:
+            # 클라이언트가 메시지를 안 보내더라도 연결은 유지됨
+            await websocket.receive_text()
+    except WebSocketDisconnect:
         print(f"[WS DISCONNECT] store={store_id}, table={table_num}")
-        clients.pop(key, None)  # 안전하게 삭제
+    except Exception as e:
+        print(f"[WS ERROR] store={store_id}, table={table_num}, {e}")
+    finally:
+        clients.pop(key, None)
+
+# ------------------------
+# 내부 유틸: 안전 송신
+# ------------------------
+async def safe_send(key: Tuple[int, int], message: str):
+    ws = clients.get(key)
+    if not ws:
+        return False
+    try:
+        await ws.send_text(message)
+        return True
+    except Exception as e:
+        print(f"[WS SEND ERROR] {key}: {e}")
+        clients.pop(key, None)
+        return False
+
+
 
 # ------------------------
 # REST API: 블라인드 제어
 # ------------------------
 @app.post("/blind/{store_id}/{table_num}/open")
 async def open_blind(store_id: int, table_num: int):
-    key = (store_id, table_num)
-    if key in clients:
-        await clients[key].send_text("open")
+    await safe_send((store_id, table_num), "open")
     return RedirectResponse(url="/table", status_code=303)
 
 
 @app.post("/blind/{store_id}/{table_num}/close")
 async def close_blind(store_id: int, table_num: int):
-    key = (store_id, table_num)
-    if key in clients:
-        await clients[key].send_text("close")
+    await safe_send((store_id, table_num), "close")
     return RedirectResponse(url="/table", status_code=303)
-
