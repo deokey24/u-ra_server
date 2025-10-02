@@ -6,9 +6,12 @@ from datetime import datetime
 import asyncio
 import crud,sqlite3,hashlib,base64
 from typing import Dict, Tuple
+from typing import Optional
+
 
 app = FastAPI()
 crud.init_db()
+crud.migrate_db()
 
 
 # (store_id, table_num) → WebSocket 연결 관리
@@ -329,21 +332,64 @@ def store_menus_page(request: Request):
     store_id = request.cookies.get("store_id")
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
+
+    # 스토어 확인
     cur.execute("SELECT id, name FROM stores WHERE id=?", (store_id,))
     store = cur.fetchone()
-
     if not store:
         conn.close()
         return JSONResponse({"error": "Store not found"}, status_code=404)
 
-    cur.execute("SELECT id, menu_name, price, minutes FROM store_menus WHERE store_id=? ORDER BY minutes", (store_id,))
+    # ✅ 메뉴 조회 (새 컬럼 포함)
+    cur.execute("""
+        SELECT id, menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date
+        FROM store_menus
+        WHERE store_id=?
+        ORDER BY minutes
+    """, (store_id,))
     menus = cur.fetchall()
     conn.close()
 
     return templates.TemplateResponse(
         "manage_menus.html",
-        {"request": request, "store_id": store_id, "store_name": store[1], "menus": menus}
+        {
+            "request": request,
+            "store_id": store_id,
+            "store_name": store[1],
+            "menus": menus
+        }
     )
+
+# ✅ 외부에서 메뉴 조회 (JSON)
+@app.get("/api/menus/{store_id}")
+def api_get_menus(store_id: int):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date
+        FROM store_menus
+        WHERE store_id=?
+        ORDER BY minutes
+    """, (store_id,))
+    rows = cur.fetchall()
+    conn.close()
+
+    # JSON 형태로 가공
+    menus = []
+    for r in rows:
+        menus.append({
+            "id": r[0],
+            "menu_name": r[1],
+            "price": r[2],
+            "minutes": r[3],
+            "always_visible": bool(r[4]),
+            "start_time": r[5],
+            "end_time": r[6],
+            "start_date": r[7],
+            "end_date": r[8],
+        })
+
+    return {"store_id": store_id, "menus": menus}
 
 
 # ✅ 새 메뉴 추가
@@ -353,13 +399,22 @@ def add_menu(
     store_id: int = Form(...),
     menu_name: str = Form(...),
     price: int = Form(...),
-    minutes: int = Form(...)
+    minutes: int = Form(...),
+    always_visible: Optional[int] = Form(0),
+    start_date: Optional[str] = Form(None),
+    end_date: Optional[str] = Form(None),
+    start_time: Optional[str] = Form(None),
+    end_time: Optional[str] = Form(None),
 ):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO store_menus (store_id, menu_name, price, minutes) VALUES (?, ?, ?, ?)",
-        (store_id, menu_name, price, minutes)
+        """
+        INSERT INTO store_menus
+        (store_id, menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (store_id, menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date)
     )
     conn.commit()
     conn.close()
@@ -373,11 +428,23 @@ def update_menu_action(
     menu_id: int = Form(...),
     menu_name: str = Form(...),
     price: int = Form(...),
-    minutes: int = Form(...)
+    minutes: int = Form(...),
+    always_visible: Optional[int] = Form(0),
+    start_date: Optional[str] = Form(None),
+    end_date: Optional[str] = Form(None),
+    start_time: Optional[str] = Form(None),
+    end_time: Optional[str] = Form(None),
 ):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("UPDATE store_menus SET menu_name=?, price=?, minutes=? WHERE id=?", (menu_name, price, minutes, menu_id))
+    cur.execute(
+        """
+        UPDATE store_menus
+        SET menu_name=?, price=?, minutes=?, always_visible=?, start_time=?, end_time=?, start_date=?, end_date=?
+        WHERE id=?
+        """,
+        (menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date, menu_id)
+    )
     conn.commit()
 
     cur.execute("SELECT store_id FROM store_menus WHERE id=?", (menu_id,))

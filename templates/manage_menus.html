@@ -1,65 +1,164 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 style="font-size:20px; margin-bottom:15px;">{{ store_name }} 메뉴 관리</h1>
+<style>
+  .card {border:1px solid #ccc; border-radius:6px; padding:10px; background:#fafafa}
+  .stack {display:flex; flex-direction:column; gap:8px}
+  .inline-check {display:inline-flex; align-items:center; gap:6px}
+  input[type="text"], input[type="number"], input[type="time"], input[type="date"] {width:100%}
+  label {font-size:13px}
 
-<!-- 새 메뉴 추가 -->
-<div style="margin-bottom:20px;">
-  <form method="post" action="/menu/add" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-    <input type="hidden" name="store_id" value="{{ store_id }}">
-    <input type="text" name="menu_name" placeholder="메뉴명" required style="width:100px;">
-    <input type="number" name="price" placeholder="가격" required style="width:80px;">
-    <input type="number" name="minutes" placeholder="시간(분)" required style="width:80px;">
-    <button type="submit" style="padding:4px 10px; background:#4caf50; color:white; border:none; border-radius:4px;">
-      추가
-    </button>
-  </form>
-</div>
+  .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 12px;
+  }
 
-<!-- 기존 메뉴 목록 -->
-<table style="width:100%; border-collapse:collapse; font-size:14px;">
+  table.menus {width:100%; border-collapse:collapse; font-size:13px; margin-bottom:20px;}
+  table.menus th, table.menus td {border:1px solid #ccc; padding:6px; text-align:center;}
+  table.menus th {background:#eee;}
+  .ellipsis {
+    max-width:150px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+</style>
+
+<h1 style="font-size:20px; margin-bottom:10px;">메뉴 요약</h1>
+<table class="menus">
   <thead>
-    <tr style="background:#f5f5f5;">
-      <th style="padding:6px; border:1px solid #ccc;">ID</th>
-      <th style="padding:6px; border:1px solid #ccc;">메뉴명</th>
-      <th style="padding:6px; border:1px solid #ccc;">가격</th>
-      <th style="padding:6px; border:1px solid #ccc;">시간</th>
-      <th style="padding:6px; border:1px solid #ccc;">수정</th>
-      <th style="padding:6px; border:1px solid #ccc;">삭제</th>
+    <tr>
+      <th>ID</th>
+      <th>메뉴명</th>
+      <th>가격</th>
+      <th>시간(분)</th>
+      <th>항상노출</th>
+      <th>기간</th>
+      <th>시간대</th>
     </tr>
   </thead>
   <tbody>
     {% for m in menus %}
     <tr>
-      <form method="post" action="/menu/update">
-        <td style="padding:6px; border:1px solid #ccc; text-align:center;">
-          {{ m[0] }}
-          <input type="hidden" name="menu_id" value="{{ m[0] }}">
-        </td>
-        <td style="padding:6px; border:1px solid #ccc;">
-          <input type="text" name="menu_name" value="{{ m[1] }}" style="width:100%;" required>
-        </td>
-        <td style="padding:6px; border:1px solid #ccc;">
-          <input type="number" name="price" value="{{ m[2] }}" style="width:80px;" required>
-        </td>
-        <td style="padding:6px; border:1px solid #ccc;">
-          <input type="number" name="minutes" value="{{ m[3] }}" style="width:60px;" required>
-        </td>
-        <td style="padding:6px; border:1px solid #ccc; text-align:center;">
-          <button type="submit" style="padding:2px 6px; background:#2196f3; color:white; border:none; border-radius:3px; font-size:12px;">
-            저장
-          </button>
-        </td>
-      </form>
-      <td style="padding:6px; border:1px solid #ccc; text-align:center;">
-        <form method="post" action="/menu/delete" onsubmit="return confirm('정말 삭제하시겠습니까?');" style="margin:0;">
-          <input type="hidden" name="menu_id" value="{{ m[0] }}">
-          <button type="submit" style="padding:2px 6px; background:#f44336; color:white; border:none; border-radius:3px; font-size:12px;">
-            삭제
-          </button>
-        </form>
-      </td>
+      <td><a href="#menu_{{ m[0] }}">#{{ m[0] }}</a></td>
+      <td class="ellipsis" title="{{ m[1] }}">{{ m[1] }}</td>
+      <td>{{ m[2] }}</td>
+      <td>{{ m[3] }}</td>
+      <td>{% if m[4]==1 %}✅{% else %}❌{% endif %}</td>
+      <td>{{ m[7] or '-' }} ~ {{ m[8] or '-' }}</td>
+      <td>{{ m[5] or '-' }} ~ {{ m[6] or '-' }}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
+
+<h1 style="font-size:20px; margin-bottom:15px;">메뉴 관리</h1>
+
+<div class="menu-grid">
+  {% for m in menus %}
+  <div class="card" id="menu_{{ m[0] }}">
+    <div style="font-weight:bold; margin-bottom:8px;">#{{ m[0] }} 메뉴</div>
+
+    <!-- 수정 폼 -->
+    <form method="post" action="/menu/update" class="menu-form stack">
+      <input type="hidden" name="menu_id" value="{{ m[0] }}">
+
+      <input type="text"   name="menu_name" value="{{ m[1] }}" placeholder="메뉴명" required>
+      <input type="number" name="price"     value="{{ m[2] }}" placeholder="가격" required>
+      <input type="number" name="minutes"   value="{{ m[3] }}" placeholder="시간(분)" required>
+
+      <div class="inline-check">
+        <input type="hidden" name="always_visible" value="0">
+        <input id="av_{{ m[0] }}" type="checkbox" name="always_visible" value="1" {% if m[4] == 1 %}checked{% endif %}>
+        <label for="av_{{ m[0] }}" style="margin:0; line-height:1;">항상 노출</label>
+      </div>
+
+      <label>기간 시작
+        <input type="date" name="start_date" value="{{ m[7] or '' }}">
+      </label>
+      <label>기간 종료
+        <input type="date" name="end_date" value="{{ m[8] or '' }}">
+      </label>
+
+      <label>시작
+        <input type="time" name="start_time" value="{{ m[5] or '' }}">
+      </label>
+      <label>종료
+        <input type="time" name="end_time" value="{{ m[6] or '' }}">
+      </label>
+
+      <button type="submit" style="padding:6px; background:#2196f3; color:white; border:none; border-radius:4px; font-size:13px;">
+        저장
+      </button>
+    </form>
+
+    <!-- 삭제 -->
+    <form method="post" action="/menu/delete" onsubmit="return confirm('정말 삭제하시겠습니까?');" style="margin-top:6px;">
+      <input type="hidden" name="menu_id" value="{{ m[0] }}">
+      <button type="submit" style="width:100%; padding:6px; background:#f44336; color:white; border:none; border-radius:4px; font-size:13px;">
+        삭제
+      </button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+
+<br>
+<h1 style="font-size:20px; margin-bottom:15px;">메뉴 추가</h1>
+
+<div class="card" style="margin-bottom:20px;">
+  <form method="post" action="/menu/add" class="menu-form stack">
+    <input type="hidden" name="store_id" value="{{ store_id }}">
+    <input type="text"   name="menu_name" placeholder="메뉴명" required>
+    <input type="number" name="price"     placeholder="가격" required>
+    <input type="number" name="minutes"   placeholder="시간(분)" required>
+
+    <div class="inline-check">
+      <input type="hidden" name="always_visible" value="0">
+      <input id="av_new" type="checkbox" name="always_visible" value="1" checked>
+      <label for="av_new" style="margin:0; line-height:1;">항상 노출</label>
+    </div>
+
+    <label>기간 시작
+      <input type="date" name="start_date">
+    </label>
+    <label>기간 종료
+      <input type="date" name="end_date">
+    </label>
+
+    <label>시작
+      <input type="time" name="start_time">
+    </label>
+    <label>종료
+      <input type="time" name="end_time">
+    </label>
+
+    <button type="submit" style="padding:6px; background:#4caf50; color:white; border:none; border-radius:4px;">
+      메뉴 추가
+    </button>
+  </form>
+</div>
+
+<script>
+(function(){
+  function sync(form){
+    const av = form.querySelector('input[name="always_visible"]');
+    const fields = ['start_date','end_date','start_time','end_time']
+      .map(n=>form.querySelector(`[name="${n}"]`)).filter(Boolean);
+    if(!av) return;
+    const on = av.checked;
+    fields.forEach(el=>{
+      el.disabled = on;
+      if(on) el.value = '';
+    });
+  }
+  document.querySelectorAll('form.menu-form').forEach(form=>{
+    const av = form.querySelector('input[name="always_visible"]');
+    if(av){
+      sync(form);
+      av.addEventListener('change', ()=>sync(form));
+    }
+  });
+})();
+</script>
 {% endblock %}

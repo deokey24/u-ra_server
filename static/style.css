@@ -416,3 +416,14 @@ form[action="/delete_store"] button {
 form[action="/delete_store"] button:hover {
   background-color: #a71d2a;
 }
+
+.inline-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;       /* 내용만큼만 차지 */
+  margin: 4px 0;            /* 위아래 간격 조금 */
+}
+.inline-check input[type="checkbox"] {
+  width: auto;               /* 체크박스는 기본 크기 */
+}

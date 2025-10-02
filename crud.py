@@ -88,6 +88,29 @@ def init_db():
     conn.commit()
     conn.close()
 
+def migrate_db():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+
+    migrations = [
+        "ALTER TABLE store_menus ADD COLUMN always_visible INTEGER DEFAULT 1",
+        "ALTER TABLE store_menus ADD COLUMN start_time TEXT",  # HH:MM
+        "ALTER TABLE store_menus ADD COLUMN end_time TEXT",    # HH:MM
+        "ALTER TABLE store_menus ADD COLUMN start_date TEXT",  # YYYY-MM-DD
+        "ALTER TABLE store_menus ADD COLUMN end_date TEXT"     # YYYY-MM-DD
+    ]
+
+    for sql in migrations:
+        try:
+            cur.execute(sql)
+        except sqlite3.OperationalError:
+            pass
+
+    conn.commit()
+    conn.close()
+
+
+
 
 def add_reservation(store_id, table_num, phone, menu_name, price, start_time, end_time, auth_no):
     conn = sqlite3.connect(DB_PATH)
