@@ -502,7 +502,7 @@ async def websocket_endpoint(ws: WebSocket, store_id: int, table_num: int):
             data = await ws.receive_text()
             if data == "alive":
                 last_alive[key] = time.time()
-                # print(f"[ALIVE] {key}")
+                continue
             else:
                 print(f"[WS MSG] {key}: {data}")
     except WebSocketDisconnect:
@@ -579,4 +579,4 @@ async def ping_loop():
 
 @app.on_event("startup")
 async def startup_event():
-    asyncio.create_task(ping_loop())
+    pass 
