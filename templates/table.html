@@ -1,12 +1,25 @@
 {% extends "base.html" %}
 {% block content %}
 {% set store_id = request.cookies.get("store_id") %}
+<style>
+  .alive-dot, .dead-dot {
+    width:16px;
+    height:16px;
+    border-radius:50%;
+  }
+  .alive-dot { background-color:green; }
+  .dead-dot { background-color:red; }
+</style>
+
 <h1 style="text-align:center;">{{ store_id }}번 지점 테이블 현황</h1>
 
 <div style="display:flex; flex-direction:column; gap:20px; align-items:center; margin-top:20px;">
   {% for i in range(1, 5) %}
     <!-- ✅ 테이블 박스 + 버튼을 가로로 배치 -->
     <div style="display:flex; flex-direction:row; gap:15px; align-items:center;">
+
+      <!-- ✅ 서버에서 내려준 alive 상태 -->
+      <div class="{{ 'alive-dot' if alive_tables.get(i) else 'dead-dot' }}"></div>
 
       <!-- 상태 박스 -->
       {% if i in active_tables %}

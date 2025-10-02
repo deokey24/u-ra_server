@@ -3,7 +3,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from datetime import datetime
-import asyncio
+import asyncio, time
 import crud,sqlite3,hashlib,base64
 from typing import Dict, Tuple
 from typing import Optional
@@ -16,6 +16,8 @@ crud.migrate_db()
 
 # (store_id, table_num) → WebSocket 연결 관리
 clients: Dict[Tuple[int, int], WebSocket] = {}
+# 마지막 alive 시간 기록
+last_alive: Dict[Tuple[int, int], float] = {}
 
 # 정적 파일 & 템플릿 설정
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -312,12 +314,26 @@ def api_tables(request: Request):
     if not store_id:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    rows = crud.list_active_reservations(int(store_id))
-    active_tables = {table: remain for table, remain in rows}  # 미리 dict로 변환
+    store_id = int(store_id)
+
+    # 사용 중인 테이블 (예약/남은 시간)
+    rows = crud.list_active_reservations(store_id)
+    active_tables = {table: remain for table, remain in rows}
+
+    # alive 상태 계산 (clients 딕셔너리 기반)
+    alive_tables = {}
+    for i in range(1, 5):  # 필요하다면 DB에서 테이블 수를 읽어와도 됨
+        key = (store_id, i)
+        alive_tables[i] = key in clients
 
     return templates.TemplateResponse(
         "table.html",
-        {"request": request, "active_tables": active_tables, "store_id": store_id}   # 반드시 request 전달 필요
+        {
+            "request": request, 
+            "store_id": store_id,
+            "active_tables": active_tables,
+            "alive_tables": alive_tables,
+        }
     )
 
 # 예약삭제
@@ -359,7 +375,7 @@ def store_menus_page(request: Request):
             "menus": menus
         }
     )
-
+    
 # ✅ 외부에서 메뉴 조회 (JSON)
 @app.get("/api/menus/{store_id}")
 def api_get_menus(store_id: int):
@@ -474,22 +490,34 @@ def delete_menu_action(request: Request, menu_id: int = Form(...)):
 # WebSocket 엔드포인트
 # ------------------------
 @app.websocket("/ws/{store_id}/{table_num}")
-async def websocket_endpoint(websocket: WebSocket, store_id: int, table_num: int):
+async def websocket_endpoint(ws: WebSocket, store_id: int, table_num: int):
     key = (store_id, table_num)
-    await websocket.accept()
-    clients[key] = websocket
-    print(f"[WS CONNECT] store={store_id}, table={table_num}")
+    await ws.accept()
+    clients[key] = ws
+    last_alive[key] = time.time()
+    print(f"[WS CONNECT] {key}")
 
     try:
         while True:
-            # 클라이언트가 메시지를 안 보내더라도 연결은 유지됨
-            await websocket.receive_text()
+            data = await ws.receive_text()
+            if data == "alive":
+                last_alive[key] = time.time()
+                # print(f"[ALIVE] {key}")
+            else:
+                print(f"[WS MSG] {key}: {data}")
     except WebSocketDisconnect:
-        print(f"[WS DISCONNECT] store={store_id}, table={table_num}")
+        print(f"[WS DISCONNECT] {key}")
     except Exception as e:
-        print(f"[WS ERROR] store={store_id}, table={table_num}, {e}")
+        print(f"[WS ERROR] {key}: {e}")
     finally:
         clients.pop(key, None)
+        last_alive.pop(key, None)
+        try:
+            await ws.close()
+        except:
+            pass
+        print(f"[WS CLOSED] {key}")
+
 
 # ------------------------
 # 내부 유틸: 안전 송신
@@ -505,44 +533,8 @@ async def safe_send(key: Tuple[int, int], message: str):
     except Exception as e:
         print(f"[WS SEND ERROR] {key}: {e}")
         clients.pop(key, None)
+        last_alive.pop(key, None)
         return False
-
-
-# ------------------------
-# WebSocket 엔드포인트
-# ------------------------
-@app.websocket("/ws/{store_id}/{table_num}")
-async def websocket_endpoint(ws: WebSocket, store_id: int, table_num: int):
-    key = (store_id, table_num)
-    await ws.accept()
-
-    # 기존 세션 있으면 정리하고 교체
-    if key in clients:
-        try:
-            await clients[key].close()
-        except:
-            pass
-    clients[key] = ws
-    print(f"[WS CONNECTED] {key}")
-
-    try:
-        while True:
-            data = await ws.receive_text()   # 클라이언트 메시지 대기
-            print(f"[WS MSG] {key}: {data}")
-            # 필요 시 메시지 처리 로직 추가
-    except WebSocketDisconnect:
-        print(f"[WS DISCONNECT] {key}")
-    except Exception as e:
-        print(f"[WS ERROR] {key}: {e}")
-    finally:
-        clients.pop(key, None)
-        try:
-            await ws.close()
-        except:
-            pass
-        print(f"[WS CLOSED] {key}")
-
-
 # ------------------------
 # REST API: 블라인드 제어
 # ------------------------
@@ -558,19 +550,31 @@ async def close_blind(store_id: int, table_num: int):
 
 
 # ------------------------
-# Ping/Pong 유지 (죽은 소켓 정리)
+# Ping/Pong + Alive 체크
 # ------------------------
 async def ping_loop():
     while True:
+        now = time.time()
         dead_keys = []
         for key, ws in list(clients.items()):
+            # ping 전송 시도
             try:
                 await ws.send_text("ping")
             except:
                 dead_keys.append(key)
+                continue
+
+            # alive 타임아웃 검사 (60초 이상 응답 없으면 끊음)
+            last = last_alive.get(key)
+            if last is None or (now - last > 60):
+                print(f"[ALIVE TIMEOUT] {key}")
+                dead_keys.append(key)
+
         for key in dead_keys:
             clients.pop(key, None)
-            print(f"[PING LOOP] cleaned dead client {key}")
+            last_alive.pop(key, None)
+            print(f"[PING LOOP] cleaned {key}")
+
         await asyncio.sleep(30)  # 30초마다 점검
 
 @app.on_event("startup")
