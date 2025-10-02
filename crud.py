@@ -201,7 +201,12 @@ def get_menus(store_id: int):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, menu_name, price, minutes FROM store_menus WHERE store_id = ? ORDER BY minutes",
+        """
+        SELECT id, menu_name, price, minutes, always_visible, start_date, end_date, start_time, end_time
+        FROM store_menus
+        WHERE store_id = ?
+        ORDER BY minutes, always_visible DESC, id
+        """,
         (store_id,)
     )
     rows = cur.fetchall()
