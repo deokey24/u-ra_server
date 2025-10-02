@@ -429,6 +429,7 @@ async def websocket_endpoint(websocket: WebSocket, store_id: int, table_num: int
 async def safe_send(key: Tuple[int, int], message: str):
     ws = clients.get(key)
     if not ws:
+        print(f"[WS SEND FAIL] {key}: no active client")
         return False
     try:
         await ws.send_text(message)
@@ -439,6 +440,40 @@ async def safe_send(key: Tuple[int, int], message: str):
         return False
 
 
+# ------------------------
+# WebSocket 엔드포인트
+# ------------------------
+@app.websocket("/ws/{store_id}/{table_num}")
+async def websocket_endpoint(ws: WebSocket, store_id: int, table_num: int):
+    key = (store_id, table_num)
+    await ws.accept()
+
+    # 기존 세션 있으면 정리하고 교체
+    if key in clients:
+        try:
+            await clients[key].close()
+        except:
+            pass
+    clients[key] = ws
+    print(f"[WS CONNECTED] {key}")
+
+    try:
+        while True:
+            data = await ws.receive_text()   # 클라이언트 메시지 대기
+            print(f"[WS MSG] {key}: {data}")
+            # 필요 시 메시지 처리 로직 추가
+    except WebSocketDisconnect:
+        print(f"[WS DISCONNECT] {key}")
+    except Exception as e:
+        print(f"[WS ERROR] {key}: {e}")
+    finally:
+        clients.pop(key, None)
+        try:
+            await ws.close()
+        except:
+            pass
+        print(f"[WS CLOSED] {key}")
+
 
 # ------------------------
 # REST API: 블라인드 제어
@@ -448,8 +483,28 @@ async def open_blind(store_id: int, table_num: int):
     await safe_send((store_id, table_num), "open")
     return RedirectResponse(url="/table", status_code=303)
 
-
 @app.post("/blind/{store_id}/{table_num}/close")
 async def close_blind(store_id: int, table_num: int):
     await safe_send((store_id, table_num), "close")
     return RedirectResponse(url="/table", status_code=303)
+
+
+# ------------------------
+# Ping/Pong 유지 (죽은 소켓 정리)
+# ------------------------
+async def ping_loop():
+    while True:
+        dead_keys = []
+        for key, ws in list(clients.items()):
+            try:
+                await ws.send_text("ping")
+            except:
+                dead_keys.append(key)
+        for key in dead_keys:
+            clients.pop(key, None)
+            print(f"[PING LOOP] cleaned dead client {key}")
+        await asyncio.sleep(30)  # 30초마다 점검
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(ping_loop())
