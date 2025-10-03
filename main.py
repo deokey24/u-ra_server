@@ -7,9 +7,18 @@ import asyncio, time
 import crud,sqlite3,hashlib,base64
 from typing import Dict, Tuple
 from typing import Optional
+from contextlib import asynccontextmanager
 
+# lifespan 핸들러
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(ping_loop())  # 서버 시작 시 실행
+    print("[SERVER] ping_loop started")
+    yield
+    task.cancel()  # 서버 종료 시 정리
+    print("[SERVER] ping_loop stopped")
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 crud.init_db()
 crud.migrate_db()
 
@@ -557,14 +566,14 @@ async def ping_loop():
         now = time.time()
         dead_keys = []
         for key, ws in list(clients.items()):
-            # ping 전송 시도
             try:
                 await ws.send_text("ping")
-            except:
+            except Exception as e:
+                print(f"[PING FAIL] {key}: {e}")
                 dead_keys.append(key)
                 continue
 
-            # alive 타임아웃 검사 (60초 이상 응답 없으면 끊음)
+            # alive 타임아웃 검사
             last = last_alive.get(key)
             if last is None or (now - last > 60):
                 print(f"[ALIVE TIMEOUT] {key}")
@@ -575,8 +584,6 @@ async def ping_loop():
             last_alive.pop(key, None)
             print(f"[PING LOOP] cleaned {key}")
 
-        await asyncio.sleep(30)  # 30초마다 점검
+        await asyncio.sleep(20)
 
-@app.on_event("startup")
-async def startup_event():
-    pass 
+
