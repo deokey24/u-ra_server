@@ -514,8 +514,8 @@ async def websocket_endpoint(ws: WebSocket, store_id: int, table_num: int):
                 continue
             else:
                 print(f"[WS MSG] {key}: {data}")
-    except WebSocketDisconnect:
-        print(f"[WS DISCONNECT] {key}")
+    except WebSocketDisconnect as e:
+        print(f"[WS DISCONNECT] {key}, code={e.code}, reason={e.reason}")
     except Exception as e:
         print(f"[WS ERROR] {key}: {e}")
     finally:
