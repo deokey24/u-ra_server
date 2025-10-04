@@ -576,34 +576,32 @@ async def close_blind(store_id: int, table_num: int):
 # ping/pong 루프 (네이티브 방식)
 # ------------------------
 async def ping_loop():
-    """모든 활성 세션에 ping 전송 및 pong 수신 감시"""
+    """서버 → 클라이언트 텍스트 ping, 클라 → alive 응답"""
     while True:
         now = time.time()
         dead_keys = []
 
         for key, ws in list(clients.items()):
             try:
-                pong_waiter = await ws.send_ping()
-                await asyncio.wait_for(pong_waiter, timeout=PING_TIMEOUT)
-                last_alive[key] = time.time()  # pong 응답 → alive 갱신
-            except asyncio.TimeoutError:
-                print(f"[PING TIMEOUT] {key}")
-                dead_keys.append(key)
+                # ✅ ping 텍스트 전송
+                await ws.send_text("ping")
             except Exception as e:
                 print(f"[PING FAIL] {key}: {e}")
                 dead_keys.append(key)
+                continue
 
-            # alive 타임아웃 (예: 60초 이상 무응답)
+            # ✅ alive 응답 타임아웃 체크
             last = last_alive.get(key)
-            if not last or (now - last > 60):
+            if last is None or (now - last > 60):
                 print(f"[ALIVE TIMEOUT] {key}")
                 dead_keys.append(key)
 
+        # 죽은 세션 정리
         for key in dead_keys:
-            ws = clients.pop(key, None)
+            clients.pop(key, None)
             last_alive.pop(key, None)
             try:
-                await ws.close(code=1006)
+                await ws.close()
             except:
                 pass
             print(f"[PING LOOP] cleaned {key}")
