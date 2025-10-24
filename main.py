@@ -7,25 +7,78 @@ import asyncio, time
 import crud,sqlite3,hashlib,base64
 from typing import Dict, Tuple
 from typing import Optional
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+
+
+PING_INTERVAL = 20  # ping 주기 (초)
+ALIVE_TIMEOUT = 60    
+PING_TIMEOUT = 5    # pong 응답 타임아웃
+
+# ------------------------
+# ping/pong 루프 (네이티브 방식)
+# ------------------------
+async def ping_loop():
+    """서버 → 클라이언트 텍스트 ping, 클라 → alive 응답 타임아웃 정리"""
+    try:
+        while True:
+            now = time.time()
+            dead_keys = []
+
+            for key, ws in list(clients.items()):
+                try:
+                    await ws.send_text("ping")
+                except Exception as e:
+                    print(f"[PING FAIL] {key}: {e}")
+                    dead_keys.append(key)
+                    continue
+
+                last = last_alive.get(key, 0)
+                if now - last > ALIVE_TIMEOUT:
+                    print(f"[ALIVE TIMEOUT] {key}")
+                    dead_keys.append(key)
+
+            for key in dead_keys:
+                ws_to_close = clients.pop(key, None)
+                last_alive.pop(key, None)
+                if ws_to_close:
+                    try:
+                        await ws_to_close.close(code=1001)
+                    except Exception as e:
+                        print(f"[CLOSE FAIL] {key}: {e}")
+                print(f"[PING LOOP] cleaned {key}")
+
+            await asyncio.sleep(PING_INTERVAL)
+    except asyncio.CancelledError:
+        print("[PING LOOP] cancelled")
+        raise
 
 # lifespan 핸들러
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    task = asyncio.create_task(ping_loop())  # 서버 시작 시 ping_loop 실행
+    task = asyncio.create_task(ping_loop())
     print("[SERVER] ping_loop started")
-    yield
-    task.cancel()
-    clients.clear()
-    last_alive.clear()
-    print("[SERVER] ping_loop stopped & sessions cleared")
+    try:
+        yield
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+        # 남은 소켓 정리
+        for key, ws in list(clients.items()):
+            try:
+                await ws.close(code=1001)
+            except Exception as e:
+                print(f"[SERVER SHUTDOWN CLOSE FAIL] {key}: {e}")
+        clients.clear()
+        last_alive.clear()
+        print("[SERVER] ping_loop stopped & sessions cleared")
+
+app = FastAPI(lifespan=lifespan)
 
 app = FastAPI(lifespan=lifespan)
 crud.init_db()
 crud.migrate_db()
 
-PING_INTERVAL = 20  # ping 주기 (초)
-PING_TIMEOUT = 5    # pong 응답 타임아웃
 
 
 # (store_id, table_num) → WebSocket 연결 관리
@@ -340,7 +393,7 @@ def api_tables(request: Request):
     for i in range(1, 5):
         key = (store_id, i)
         last = last_alive.get(key)
-        if key in clients and last and (now - last <= 60):
+        if key in clients and last and (now - last <= ALIVE_TIMEOUT):
             alive_tables[i] = True
         else:
             alive_tables[i] = False
@@ -512,6 +565,16 @@ def delete_menu_action(request: Request, menu_id: int = Form(...)):
 async def websocket_endpoint(ws: WebSocket, store_id: int, table_num: int):
     key = (store_id, table_num)
     await ws.accept()
+
+    # 기존 연결이 있으면 닫고 교체
+    old = clients.get(key)
+    if old and old is not ws:
+        try:
+            await old.close(code=1012)  # service restarting 등 의미
+        except:
+            pass
+
+
     clients[key] = ws
     last_alive[key] = time.time()
     print(f"[WS CONNECT] {key}")
@@ -521,7 +584,6 @@ async def websocket_endpoint(ws: WebSocket, store_id: int, table_num: int):
             data = await ws.receive_text()
             if data == "alive":
                 last_alive[key] = time.time()
-                continue
             else:
                 print(f"[WS MSG] {key}: {data}")
     except WebSocketDisconnect as e:
@@ -529,8 +591,11 @@ async def websocket_endpoint(ws: WebSocket, store_id: int, table_num: int):
     except Exception as e:
         print(f"[WS ERROR] {key}: {e}")
     finally:
-        clients.pop(key, None)
-        last_alive.pop(key, None)
+        # 내가 등록한 소켓일 때만 제거 (경합 안전)
+        cur = clients.get(key)
+        if cur is ws:
+            clients.pop(key, None)
+            last_alive.pop(key, None)
         try:
             await ws.close(code=1001)
         except:
@@ -555,8 +620,11 @@ async def safe_send(key: Tuple[int, int], message: str):
             await ws.close(code=1001)
         except:
             pass
-        clients.pop(key, None)
-        last_alive.pop(key, None)
+        # 현재 키의 소켓만 제거
+        cur = clients.get(key)
+        if cur is ws:
+            clients.pop(key, None)
+            last_alive.pop(key, None)
         return False
 # ------------------------
 # REST API: 블라인드 제어
@@ -572,38 +640,3 @@ async def close_blind(store_id: int, table_num: int):
     return RedirectResponse(url="/table", status_code=303)
 
 
-# ------------------------
-# ping/pong 루프 (네이티브 방식)
-# ------------------------
-async def ping_loop():
-    """서버 → 클라이언트 텍스트 ping, 클라 → alive 응답"""
-    while True:
-        now = time.time()
-        dead_keys = []
-
-        for key, ws in list(clients.items()):
-            try:
-                # ✅ ping 텍스트 전송
-                await ws.send_text("ping")
-            except Exception as e:
-                print(f"[PING FAIL] {key}: {e}")
-                dead_keys.append(key)
-                continue
-
-            # ✅ alive 응답 타임아웃 체크
-            last = last_alive.get(key)
-            if last is None or (now - last > 60):
-                print(f"[ALIVE TIMEOUT] {key}")
-                dead_keys.append(key)
-
-        # 죽은 세션 정리
-        for key in dead_keys:
-            clients.pop(key, None)
-            last_alive.pop(key, None)
-            try:
-                await ws.close()
-            except:
-                pass
-            print(f"[PING LOOP] cleaned {key}")
-
-        await asyncio.sleep(20)
