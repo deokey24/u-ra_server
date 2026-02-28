@@ -85,6 +85,9 @@ crud.migrate_db()
 clients: Dict[Tuple[int, int], WebSocket] = {}
 # 마지막 alive 시간 기록
 last_alive: Dict[Tuple[int, int], float] = {}
+# 이전 active_tables 상태 저장 (자동 open/close 감지용)
+# store_id → set of table_num
+prev_active_tables: Dict[int, set] = {}
 
 # 정적 파일 & 템플릿 설정
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -376,7 +379,7 @@ def assign_store(request: Request, user_id: int = Form(...), store_id: int = For
 
 # ✅ 현재 사용 중인 테이블 조회 API
 @app.get("/table")
-def api_tables(request: Request):
+async def api_tables(request: Request):
     store_id = request.cookies.get("store_id")
     if not store_id:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
@@ -397,6 +400,29 @@ def api_tables(request: Request):
             alive_tables[i] = True
         else:
             alive_tables[i] = False
+
+    # ✅ 이전 상태와 비교하여 자동 open/close 명령 전송
+    current_set = set(active_tables.keys())
+    prev_set = prev_active_tables.get(store_id, set())
+
+    # 새로 결제되어 남은시간이 생긴 테이블 → 열기 (10초 간격 순차 전송)
+    newly_active = sorted(current_set - prev_set)
+    for i, table_num in enumerate(newly_active):
+        if i > 0:
+            await asyncio.sleep(10)
+        print(f"[AUTO OPEN] store={store_id}, table={table_num}")
+        await safe_send((store_id, table_num), "open")
+
+    # 남은시간이 사라진 테이블 → 닫기 (10초 간격 순차 전송)
+    newly_inactive = sorted(prev_set - current_set)
+    for i, table_num in enumerate(newly_inactive):
+        if i > 0:
+            await asyncio.sleep(10)
+        print(f"[AUTO CLOSE] store={store_id}, table={table_num}")
+        await safe_send((store_id, table_num), "close")
+
+    # 현재 상태 저장
+    prev_active_tables[store_id] = current_set
 
     return templates.TemplateResponse(
         "table.html",
