@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>키오스크 설정 관리</h1>
+<p style="color:#666; margin-bottom:20px;">각 지점의 키오스크 앱에 내려줄 설정을 관리합니다.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>지점 ID</th>
+      <th>지점명</th>
+      <th>매장명 (키오스크)</th>
+      <th>테이블 수</th>
+      <th>테이블 역순</th>
+      <th>마지막 수정</th>
+      <th>관리</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in stores %}
+    {% set cfg = configs.get(s[0]) %}
+    <tr>
+      <td>{{ s[0] }}</td>
+      <td>{{ s[1] }}</td>
+      <td>{{ cfg.store_name if cfg else '—' }}</td>
+      <td>{{ cfg.table_count if cfg else '—' }}</td>
+      <td>{{ '역순' if cfg and cfg.table_reverse else '정순' }}</td>
+      <td style="font-size:12px; color:#888;">{{ cfg.updated_at if cfg else '미설정' }}</td>
+      <td>
+        <a href="/kiosk/config/{{ s[0] }}" style="
+          display:inline-block; padding:6px 14px;
+          background:#007bff; color:white; border-radius:6px;
+          text-decoration:none; font-size:13px;">
+          편집
+        </a>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" style="color:#aaa; text-align:center;">등록된 지점이 없습니다.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

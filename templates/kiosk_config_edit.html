@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .cfg-form { max-width: 700px; }
+  .cfg-form label { display:block; font-weight:bold; margin-top:18px; margin-bottom:4px; }
+  .cfg-form input[type=text],
+  .cfg-form input[type=number],
+  .cfg-form textarea {
+    width:100%; padding:10px; border:1px solid #ccc;
+    border-radius:8px; font-size:14px; box-sizing:border-box;
+  }
+  .cfg-form textarea { height:100px; resize:vertical; font-family:monospace; }
+  .cfg-form .hint { font-size:12px; color:#888; margin-top:3px; }
+  .cfg-form .section-title {
+    margin-top:30px; padding:8px 12px;
+    background:#f0f4ff; border-left:4px solid #007bff;
+    font-size:15px; font-weight:bold; border-radius:4px;
+  }
+  .save-btn {
+    margin-top:30px; padding:14px 40px;
+    background:#007bff; color:white; border:none;
+    border-radius:10px; font-size:16px; font-weight:bold;
+    cursor:pointer; width:auto;
+  }
+  .save-btn:hover { background:#0056b3; }
+  .inline-row { display:flex; align-items:center; gap:12px; }
+  .inline-row input[type=checkbox] { width:20px; height:20px; cursor:pointer; }
+  .blind-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .blind-row input { flex:1; }
+  .blind-row span { font-size:12px; color:#555; width:100px; flex-shrink:0; }
+  .add-blind-btn {
+    margin-top:6px; padding:6px 14px; background:#28a745;
+    color:white; border:none; border-radius:6px; cursor:pointer;
+    font-size:13px; width:auto;
+  }
+</style>
+
+<div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+  <a href="/kiosk/config" style="color:#007bff; text-decoration:none;">← 목록</a>
+  <h1 style="margin:0;">{{ store[1] }} — 키오스크 설정</h1>
+</div>
+<p style="color:#888; font-size:13px;">store_id: {{ store[0] }} | 마지막 수정: {{ cfg.updated_at or '없음' }}</p>
+
+<form method="post" action="/kiosk/config/{{ store[0] }}" class="cfg-form">
+
+  <!-- ── 기본 정보 ── -->
+  <div class="section-title">📋 기본 정보</div>
+
+  <label>매장명 (키오스크 화면에 표시)</label>
+  <input type="text" name="store_name" value="{{ cfg.store_name }}" placeholder="예: 무인탁구24 석남점">
+
+  <label>테이블 수</label>
+  <input type="number" name="table_count" value="{{ cfg.table_count }}" min="1" max="20">
+
+  <label style="margin-top:14px;">
+    <div class="inline-row">
+      <input type="checkbox" name="table_reverse" value="1"
+             {% if cfg.table_reverse %}checked{% endif %}>
+      <span>테이블 순서 역순 표시</span>
+    </div>
+  </label>
+  <p class="hint">체크 시 테이블 선택 화면에서 높은 번호가 위에 표시됩니다.</p>
+
+  <!-- ── 문구 설정 ── -->
+  <div class="section-title">💬 화면 문구</div>
+
+  <label>부제목 (메인 화면 하단 안내문구)</label>
+  <input type="text" name="sub_title" value="{{ cfg.sub_title }}"
+         placeholder="이용권 구매 후 도어락과 블라인드가 금방 열립니다.">
+
+  <label>고객지원 팝업 내용</label>
+  <textarea name="support_msg" placeholder="📞 아래로 문자 부탁드립니다.&#10;010-0000-0000">{{ cfg.support_msg }}</textarea>
+  <p class="hint">고객지원 버튼을 눌렀을 때 표시되는 내용입니다.</p>
+
+  <label>심야 시간 안내문 (00시~04시에 표시, 비워두면 미표시)</label>
+  <textarea name="night_notice" placeholder="심야 시간대 카드 결제 장애 안내...">{{ cfg.night_notice }}</textarea>
+  <p class="hint">비워두면 심야 시간에도 아무것도 표시되지 않습니다.</p>
+
+  <!-- ── 블라인드 UUID ── -->
+  <div class="section-title">🔌 블라인드 UUID 설정</div>
+  <p class="hint" style="margin-bottom:12px;">
+    각 테이블의 블라인드 열기/닫기 UUID를 입력하세요.<br>
+    JSON 형식: <code>{"1_open":"uuid","1_close":"uuid", ...}</code>
+  </p>
+
+  <div id="blind-rows"></div>
+  <button type="button" class="add-blind-btn" onclick="addBlindRow()">+ 테이블 추가</button>
+
+  <!-- hidden: 최종 JSON 직렬화 -->
+  <input type="hidden" name="blinds_json" id="blinds_json_input" value="{{ cfg.blinds_json }}">
+
+  <br>
+  <button type="submit" class="save-btn" onclick="serializeBlinds()">저장</button>
+</form>
+
+<script>
+// 기존 blinds_json 파싱 → 행 생성
+const existingBlinds = JSON.parse(document.getElementById('blinds_json_input').value || '{}');
+const tableCount = {{ cfg.table_count }};
+
+function addBlindRow(t, openVal, closeVal) {
+  const container = document.getElementById('blind-rows');
+  const row = document.createElement('div');
+  row.className = 'blind-row';
+  const tNum = t || '';
+  row.innerHTML = `
+    <span>테이블 번호</span>
+    <input type="number" class="t-num" value="${tNum}" min="1" placeholder="1" style="width:60px; flex:none;">
+    <span>열기 UUID</span>
+    <input type="text" class="t-open" value="${openVal||''}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+    <span>닫기 UUID</span>
+    <input type="text" class="t-close" value="${closeVal||''}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+    <button type="button" onclick="this.parentElement.remove()"
+            style="width:auto;padding:4px 10px;background:#dc3545;color:white;border:none;border-radius:5px;cursor:pointer;font-size:12px;">삭제</button>
+  `;
+  container.appendChild(row);
+}
+
+function serializeBlinds() {
+  const rows = document.querySelectorAll('.blind-row');
+  const result = {};
+  rows.forEach(row => {
+    const t    = row.querySelector('.t-num').value.trim();
+    const open = row.querySelector('.t-open').value.trim();
+    const cls  = row.querySelector('.t-close').value.trim();
+    if (t) {
+      if (open)  result[`${t}_open`]  = open;
+      if (cls)   result[`${t}_close`] = cls;
+    }
+  });
+  document.getElementById('blinds_json_input').value = JSON.stringify(result);
+}
+
+// 기존 데이터 로드
+const loaded = {};
+Object.entries(existingBlinds).forEach(([k, v]) => {
+  const m = k.match(/^(\d+)_(open|close)$/);
+  if (m) {
+    const t = m[1];
+    if (!loaded[t]) loaded[t] = {};
+    loaded[t][m[2]] = v;
+  }
+});
+
+if (Object.keys(loaded).length > 0) {
+  Object.keys(loaded).sort((a,b)=>+a-+b).forEach(t => {
+    addBlindRow(t, loaded[t].open, loaded[t].close);
+  });
+} else {
+  // 기본 테이블 수만큼 빈 행 추가
+  for (let i = 1; i <= tableCount; i++) addBlindRow(i, '', '');
+}
+</script>
+{% endblock %}

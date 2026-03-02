@@ -229,3 +229,91 @@ def delete_menu(menu_id: int):
     cur.execute("DELETE FROM store_menus WHERE id = ?", (menu_id,))
     conn.commit()
     conn.close()
+
+
+# ─────────────────────────────────────────────────────────────
+# kiosk_config CRUD
+# ─────────────────────────────────────────────────────────────
+
+def migrate_kiosk_config():
+    """kiosk_config 테이블 생성 (없을 때만)."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS kiosk_config (
+            store_id        INTEGER PRIMARY KEY,
+            store_name      TEXT    DEFAULT \'\',
+            table_count     INTEGER DEFAULT 4,
+            blinds_json     TEXT    DEFAULT \'{}\',
+            table_reverse   INTEGER DEFAULT 0,
+            sub_title       TEXT    DEFAULT \'이용권 구매 후 도어락과 블라인드가 금방 열립니다.\',
+            support_msg     TEXT    DEFAULT \'\',
+            night_notice    TEXT    DEFAULT \'\',
+            updated_at      TEXT    DEFAULT \'\'
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def get_kiosk_config(store_id: int):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM kiosk_config WHERE store_id=?", (store_id,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return None
+    cols = ["store_id","store_name","table_count","blinds_json",
+            "table_reverse","sub_title","support_msg","night_notice","updated_at"]
+    return dict(zip(cols, row))
+
+
+def upsert_kiosk_config(store_id: int, data: dict):
+    from datetime import datetime
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO kiosk_config
+            (store_id, store_name, table_count, blinds_json, table_reverse,
+             sub_title, support_msg, night_notice, updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(store_id) DO UPDATE SET
+            store_name    = excluded.store_name,
+            table_count   = excluded.table_count,
+            blinds_json   = excluded.blinds_json,
+            table_reverse = excluded.table_reverse,
+            sub_title     = excluded.sub_title,
+            support_msg   = excluded.support_msg,
+            night_notice  = excluded.night_notice,
+            updated_at    = excluded.updated_at
+    """, (
+        store_id,
+        data.get("store_name", ""),
+        data.get("table_count", 4),
+        data.get("blinds_json", "{}"),
+        int(data.get("table_reverse", 0)),
+        data.get("sub_title", "이용권 구매 후 도어락과 블라인드가 금방 열립니다."),
+        data.get("support_msg", ""),
+        data.get("night_notice", ""),
+        datetime.now().isoformat(timespec="seconds"),
+    ))
+    conn.commit()
+    conn.close()
+
+
+def list_all_kiosk_configs():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT k.*, s.name as store_display_name
+        FROM kiosk_config k
+        LEFT JOIN stores s ON s.id = k.store_id
+        ORDER BY k.store_id
+    """)
+    rows = cur.fetchall()
+    conn.close()
+    cols = ["store_id","store_name","table_count","blinds_json",
+            "table_reverse","sub_title","support_msg","night_notice",
+            "updated_at","store_display_name"]
+    return [dict(zip(cols, r)) for r in rows]

@@ -78,6 +78,7 @@ app = FastAPI(lifespan=lifespan)
 app = FastAPI(lifespan=lifespan)
 crud.init_db()
 crud.migrate_db()
+crud.migrate_kiosk_config()
 
 
 
@@ -666,3 +667,110 @@ async def close_blind(store_id: int, table_num: int):
     return RedirectResponse(url="/table", status_code=303)
 
 
+
+
+# ══════════════════════════════════════════════════════════════
+# 키오스크 설정 관리  (관리자 store_id==0 전용)
+# ══════════════════════════════════════════════════════════════
+
+def _require_admin(request: Request):
+    """store_id==0 인 관리자만 통과. 아니면 None 반환."""
+    raw = request.cookies.get("store_id")
+    if raw is None or int(raw) != 0:
+        return None
+    return True
+
+
+@app.get("/kiosk/config")
+def kiosk_config_page(request: Request):
+    """모든 지점의 키오스크 설정 목록 페이지."""
+    if not _require_admin(request):
+        return RedirectResponse(url="/", status_code=303)
+
+    import sqlite3 as _sq
+    conn = _sq.connect(crud.DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT id, name FROM stores WHERE id != 0 ORDER BY id")
+    stores = cur.fetchall()
+    conn.close()
+
+    configs = {c["store_id"]: c for c in crud.list_all_kiosk_configs()}
+
+    return templates.TemplateResponse("kiosk_config.html", {
+        "request": request,
+        "user": "관리자",
+        "store_id": 0,
+        "stores": stores,
+        "configs": configs,
+    })
+
+
+@app.get("/kiosk/config/{sid}")
+def kiosk_config_edit_page(sid: int, request: Request):
+    """특정 지점 키오스크 설정 편집 페이지."""
+    if not _require_admin(request):
+        return RedirectResponse(url="/", status_code=303)
+
+    import sqlite3 as _sq
+    conn = _sq.connect(crud.DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT id, name FROM stores WHERE id=?", (sid,))
+    store = cur.fetchone()
+    conn.close()
+
+    if not store:
+        return JSONResponse({"error": "Store not found"}, status_code=404)
+
+    cfg = crud.get_kiosk_config(sid) or {
+        "store_id": sid, "store_name": store[1],
+        "table_count": 4, "blinds_json": "{}",
+        "table_reverse": 0,
+        "sub_title": "이용권 구매 후 도어락과 블라인드가 금방 열립니다.",
+        "support_msg": "", "night_notice": "", "updated_at": "",
+    }
+
+    return templates.TemplateResponse("kiosk_config_edit.html", {
+        "request": request,
+        "user": "관리자",
+        "store_id": 0,
+        "store": store,
+        "cfg": cfg,
+    })
+
+
+@app.post("/kiosk/config/{sid}")
+def kiosk_config_save(
+    sid: int,
+    request: Request,
+    store_name:   str = Form(...),
+    table_count:  int = Form(...),
+    blinds_json:  str = Form("{}"),
+    table_reverse: int = Form(0),
+    sub_title:    str = Form(""),
+    support_msg:  str = Form(""),
+    night_notice: str = Form(""),
+):
+    """키오스크 설정 저장."""
+    if not _require_admin(request):
+        return RedirectResponse(url="/", status_code=303)
+
+    crud.upsert_kiosk_config(sid, {
+        "store_name":    store_name,
+        "table_count":   table_count,
+        "blinds_json":   blinds_json,
+        "table_reverse": table_reverse,
+        "sub_title":     sub_title,
+        "support_msg":   support_msg,
+        "night_notice":  night_notice,
+    })
+    return RedirectResponse(url="/kiosk/config", status_code=303)
+
+
+# ── 키오스크 클라이언트용 공개 API ────────────────────────────
+@app.get("/api/kiosk/config/{store_id}")
+def api_kiosk_config(store_id: int):
+    """키오스크 앱이 시작 시 호출 → store_config.json 에 캐싱."""
+    cfg = crud.get_kiosk_config(store_id)
+    if not cfg:
+        return JSONResponse({"error": "config not found"}, status_code=404)
+    return cfg
