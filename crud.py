@@ -320,12 +320,14 @@ def list_all_kiosk_configs():
 
 
 def extend_reservation_end_time(store_id: int, table_num: int, minutes: int) -> bool:
-    """현재 활성 예약의 end_time 을 minutes 분 연장. 성공 여부 반환."""
+    """활성 예약이 있으면 end_time 연장, 없으면 관리자 신규 예약 INSERT."""
     from datetime import datetime, timedelta
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    now = (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S")
-    # 현재 활성 예약 1건 조회
+    now_dt = datetime.utcnow() + timedelta(hours=9)
+    now = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    # 현재 활성 예약 조회
     cur.execute("""
         SELECT id, end_time FROM reservations
         WHERE store_id=? AND table_num=?
@@ -334,22 +336,30 @@ def extend_reservation_end_time(store_id: int, table_num: int, minutes: int) -> 
         ORDER BY end_time DESC LIMIT 1
     """, (store_id, table_num, now, now))
     row = cur.fetchone()
-    if not row:
-        conn.close()
-        return False
-    rid, end_time_str = row
-    # end_time 파싱 후 연장
-    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
-        try:
-            end_dt = datetime.strptime(end_time_str[:19], fmt)
-            break
-        except ValueError:
-            continue
+
+    if row:
+        # 기존 예약 연장
+        rid, end_time_str = row
+        for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                end_dt = datetime.strptime(end_time_str[:19], fmt)
+                break
+            except ValueError:
+                continue
+        else:
+            conn.close()
+            return False
+        new_end = (end_dt + timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M:%S")
+        cur.execute("UPDATE reservations SET end_time=? WHERE id=?", (new_end, rid))
     else:
-        conn.close()
-        return False
-    new_end = (end_dt + timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M:%S")
-    cur.execute("UPDATE reservations SET end_time=? WHERE id=?", (new_end, rid))
+        # 빈 테이블 → 관리자 신규 예약 INSERT
+        new_end = (now_dt + timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M:%S")
+        cur.execute(
+            "INSERT INTO reservations(store_id, table_num, phone, menu_name, price, start_time, end_time, auth_no)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            (store_id, table_num, "관리자", f"관리자추가({minutes}분)", 0, now, new_end, "ADMIN")
+        )
+
     conn.commit()
     conn.close()
     return True
