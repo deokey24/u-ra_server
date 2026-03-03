@@ -317,3 +317,39 @@ def list_all_kiosk_configs():
             "table_reverse","sub_title","support_msg","night_notice",
             "updated_at","store_display_name"]
     return [dict(zip(cols, r)) for r in rows]
+
+
+def extend_reservation_end_time(store_id: int, table_num: int, minutes: int) -> bool:
+    """현재 활성 예약의 end_time 을 minutes 분 연장. 성공 여부 반환."""
+    from datetime import datetime, timedelta
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    now = (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S")
+    # 현재 활성 예약 1건 조회
+    cur.execute("""
+        SELECT id, end_time FROM reservations
+        WHERE store_id=? AND table_num=?
+          AND strftime('%s', substr(replace(start_time,'T',' '),1,19)) <= strftime('%s',?)
+          AND strftime('%s', substr(replace(end_time,'T',' '),1,19))   >  strftime('%s',?)
+        ORDER BY end_time DESC LIMIT 1
+    """, (store_id, table_num, now, now))
+    row = cur.fetchone()
+    if not row:
+        conn.close()
+        return False
+    rid, end_time_str = row
+    # end_time 파싱 후 연장
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            end_dt = datetime.strptime(end_time_str[:19], fmt)
+            break
+        except ValueError:
+            continue
+    else:
+        conn.close()
+        return False
+    new_end = (end_dt + timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("UPDATE reservations SET end_time=? WHERE id=?", (new_end, rid))
+    conn.commit()
+    conn.close()
+    return True
