@@ -89,6 +89,8 @@ last_alive: Dict[Tuple[int, int], float] = {}
 # 이전 active_tables 상태 저장 (자동 open/close 감지용)
 # store_id → set of table_num
 prev_active_tables: Dict[int, set] = {}
+# ADB 연결 상태: store_id → bool (키오스크가 1분마다 POST)
+adb_status_store: Dict[int, bool] = {}
 
 # 정적 파일 & 템플릿 설정
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -392,15 +394,19 @@ async def api_tables(request: Request):
     active_tables = {table: remain for table, remain in rows}
     now = time.time()
 
-    # alive 상태 계산 (clients 딕셔너리 기반)
+    # kiosk_config 에서 테이블 수 읽기 (없으면 4 기본값)
+    kc = crud.get_kiosk_config(store_id)
+    table_count = kc["table_count"] if kc else 4
+
+    # alive 상태 계산
     alive_tables = {}
-    for i in range(1, 5):
+    for i in range(1, table_count + 1):
         key = (store_id, i)
         last = last_alive.get(key)
-        if key in clients and last and (now - last <= ALIVE_TIMEOUT):
-            alive_tables[i] = True
-        else:
-            alive_tables[i] = False
+        alive_tables[i] = bool(key in clients and last and (now - last <= ALIVE_TIMEOUT))
+
+    # ADB 연결 상태 (키오스크가 1분마다 POST로 push)
+    adb_connected = adb_status_store.get(store_id, None)
 
     # ✅ 이전 상태와 비교하여 자동 open/close 명령 전송
     current_set = set(active_tables.keys())
@@ -428,10 +434,12 @@ async def api_tables(request: Request):
     return templates.TemplateResponse(
         "table.html",
         {
-            "request": request, 
+            "request": request,
             "store_id": store_id,
+            "table_count": table_count,
             "active_tables": active_tables,
             "alive_tables": alive_tables,
+            "adb_connected": adb_connected,
         }
     )
 

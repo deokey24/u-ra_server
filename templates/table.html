@@ -95,9 +95,9 @@
 
   {# ADB 배지 #}
   {% if adb_connected == true %}
-    <div class="adb-badge ok"><span class="adb-dot ok"></span>ADB 연결됨 (도어락 정상)</div>
+    <div class="adb-badge ok"><span class="adb-dot ok"></span>ADB 연결됨</div>
   {% elif adb_connected == false %}
-    <div class="adb-badge ng"><span class="adb-dot ng"></span>ADB 연결 안됨 (도어락 제어 불가)</div>
+    <div class="adb-badge ng"><span class="adb-dot ng"></span>ADB 연결 안됨</div>
   {% else %}
     <div class="adb-badge unk"><span class="adb-dot unk"></span>ADB 상태 미수신</div>
   {% endif %}
