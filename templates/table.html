@@ -1,73 +1,144 @@
 {% extends "base.html" %}
 {% block content %}
-{% set store_id = request.cookies.get("store_id") %}
+{% set sid = store_id | string %}
 <style>
-  .alive-dot, .dead-dot {
-    width:16px;
-    height:16px;
-    border-radius:50%;
+  .page-title { text-align:center; font-size:22px; font-weight:bold; margin-bottom:8px; }
+
+  .adb-bar {
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    margin:0 auto 24px; padding:8px 20px; border-radius:30px;
+    width:fit-content; font-size:14px; font-weight:bold;
   }
-  .alive-dot { background-color:green; }
-  .dead-dot { background-color:red; }
+  .adb-bar.connected    { background:#e6f9ee; border:1.5px solid #28a745; color:#1a7a35; }
+  .adb-bar.disconnected { background:#fff0f0; border:1.5px solid #dc3545; color:#a71d2a; }
+  .adb-bar.unknown      { background:#f5f5f5; border:1.5px solid #aaa;    color:#666; }
+  .adb-dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
+  .adb-dot.connected    { background:#28a745; }
+  .adb-dot.disconnected { background:#dc3545; }
+  .adb-dot.unknown      { background:#aaa; }
+
+  .table-grid { display:flex; flex-direction:column; gap:16px; align-items:center; }
+  .table-row {
+    display:flex; flex-direction:row; align-items:center; gap:16px;
+    background:#fff; border:1px solid #ddd; border-radius:14px;
+    padding:16px 20px; width:100%; max-width:700px;
+    box-shadow:0 1px 4px rgba(0,0,0,0.07);
+  }
+  .ws-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+  .ws-dot.alive { background:#28a745; }
+  .ws-dot.dead  { background:#dc3545; }
+
+  .status-box {
+    width:110px; min-width:110px; height:90px;
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    border:1px solid #ccc; border-radius:10px;
+    font-weight:bold; font-size:16px; text-align:center; background:white;
+  }
+  .status-box.active     { background:#b3e5fc; border-color:#039be5; }
+  .status-box.active.low { background:#ffcdd2; border-color:#e53935; }
+  .status-box span { font-size:12px; color:#555; margin-top:4px; }
+
+  .blind-btns { display:flex; gap:8px; }
+  .btn-open, .btn-close {
+    padding:8px 18px; border:none; border-radius:8px;
+    font-size:14px; font-weight:bold; cursor:pointer; width:auto;
+  }
+  .btn-open  { background:#28a745; color:white; }
+  .btn-open:hover  { background:#1e7e34; }
+  .btn-close { background:#dc3545; color:white; }
+  .btn-close:hover { background:#a71d2a; }
+
+  .time-ctrl { display:flex; align-items:center; gap:6px; margin-left:auto; }
+  .time-ctrl button {
+    width:34px; height:34px; border-radius:8px; border:1px solid #ccc;
+    background:white; font-size:18px; font-weight:bold; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0;
+  }
+  .time-ctrl button:hover { background:#f0f0f0; }
+  .min-display { min-width:48px; text-align:center; font-size:15px; font-weight:bold; }
+  .btn-add {
+    padding:8px 14px; background:#f0ad4e; color:white;
+    border:none; border-radius:8px; font-size:13px; font-weight:bold;
+    cursor:pointer; width:auto;
+  }
+  .btn-add:hover { background:#d4891a; }
 </style>
 
-<h1 style="text-align:center;">{{ store_id }}번 지점 테이블 현황</h1>
+<div class="page-title">{{ store_id }}번 지점 테이블 현황</div>
 
-<div style="display:flex; flex-direction:column; gap:20px; align-items:center; margin-top:20px;">
-  {% for i in range(1, 5) %}
-    <!-- ✅ 테이블 박스 + 버튼을 가로로 배치 -->
-    <div style="display:flex; flex-direction:row; gap:15px; align-items:center;">
+{% if adb_connected == true %}
+  <div class="adb-bar connected">
+    <span class="adb-dot connected"></span> ADB 연결됨 (도어락 정상)
+  </div>
+{% elif adb_connected == false %}
+  <div class="adb-bar disconnected">
+    <span class="adb-dot disconnected"></span> ADB 연결 안됨 (도어락 제어 불가)
+  </div>
+{% else %}
+  <div class="adb-bar unknown">
+    <span class="adb-dot unknown"></span> ADB 상태 미수신
+  </div>
+{% endif %}
 
-      <!-- ✅ 서버에서 내려준 alive 상태 -->
-      <div class="{{ 'alive-dot' if alive_tables.get(i) else 'dead-dot' }}"></div>
+<div class="table-grid">
+  {% for i in range(1, table_count + 1) %}
+  <div class="table-row">
 
-      <!-- 상태 박스 -->
-      {% if i in active_tables %}
-        {% set minutes = active_tables[i] %}
-        <div style="width:120px; height:120px; display:flex; flex-direction:column;
-                    justify-content:center; align-items:center; border:1px solid #333;
-                    border-radius:8px; background-color:#b3e5fc; font-weight:bold; font-size:18px;
-                    text-align:center;">
-          <div>{{ i }}번</div>
-          <div style="font-size:14px;">남은시간 {{ minutes }}분</div>
-        </div>
-      {% else %}
-        <div style="width:120px; height:120px; display:flex; flex-direction:column;
-                    justify-content:center; align-items:center; border:1px solid #333;
-                    border-radius:8px; background-color:white; font-weight:bold; font-size:18px;
-                    text-align:center;">
-          <div>{{ i }}번</div>
-          <div style="font-size:14px; color:#666;">대기중</div>
-        </div>
-      {% endif %}
+    <div class="ws-dot {{ 'alive' if alive_tables.get(i) else 'dead' }}"
+         title="{{ 'WS 연결됨' if alive_tables.get(i) else 'WS 끊김' }}"></div>
 
-      <!-- 버튼 박스 (옆에 세로로 정렬) -->
-      <div style="display:flex; flex-direction:row; gap:40px; align-items:center;">
-        <form action="/blind/{{ store_id }}/{{ i }}/open" method="post"
-              onsubmit="return confirm('{{ i }}번 테이블 블라인드를 열까요?');">
-          <button type="submit" 
-                  style="width:80px; height:40px; display:flex; align-items:center; justify-content:center;">
-            열기
-          </button>
-        </form>
-
-        <form action="/blind/{{ store_id }}/{{ i }}/close" method="post"
-              onsubmit="return confirm('{{ i }}번 테이블 블라인드를 닫을까요?');">
-          <button type="submit" 
-                  style="width:80px; height:40px; display:flex; align-items:center; justify-content:center;">
-            닫기
-          </button>
-        </form>
+    {% if i in active_tables %}
+      {% set minutes = active_tables[i] %}
+      <div class="status-box active {{ 'low' if minutes < 5 else '' }}">
+        <div>{{ i }}번</div>
+        <span>남은 {{ minutes }}분</span>
       </div>
+    {% else %}
+      <div class="status-box">
+        <div>{{ i }}번</div>
+        <span style="color:#aaa;">대기중</span>
+      </div>
+    {% endif %}
 
+    <div class="blind-btns">
+      <form action="/blind/{{ store_id }}/{{ i }}/open" method="post"
+            onsubmit="return confirm('{{ i }}번 테이블 블라인드를 열까요?');" style="display:inline;">
+        <button type="submit" class="btn-open">열기</button>
+      </form>
+      <form action="/blind/{{ store_id }}/{{ i }}/close" method="post"
+            onsubmit="return confirm('{{ i }}번 테이블 블라인드를 닫을까요?');" style="display:inline;">
+        <button type="submit" class="btn-close">닫기</button>
+      </form>
     </div>
+
+    <div class="time-ctrl">
+      <button type="button" onclick="changeMin({{ i }}, -5)">&#8722;</button>
+      <span class="min-display" id="min-{{ i }}">5</span>
+      <span style="font-size:13px;color:#666;">분</span>
+      <button type="button" onclick="changeMin({{ i }}, 5)">+</button>
+      <form action="/table/{{ store_id }}/{{ i }}/add_time" method="post"
+            style="display:inline;"
+            onsubmit="syncMin({{ i }})">
+        <input type="hidden" name="minutes" id="add-min-{{ i }}" value="5">
+        <button type="submit" class="btn-add">시간 추가</button>
+      </form>
+    </div>
+
+  </div>
   {% endfor %}
 </div>
 
-<!-- ✅ 30초마다 페이지 새로고침 -->
 <script>
-  setTimeout(function() {
-    window.location.reload();
-  }, 30000);
+const minValues = {};
+function changeMin(t, d) {
+  if (!minValues[t]) minValues[t] = 5;
+  minValues[t] = Math.max(5, minValues[t] + d);
+  document.getElementById("min-" + t).textContent = minValues[t];
+}
+function syncMin(t) {
+  const v = minValues[t] || 5;
+  document.getElementById("add-min-" + t).value = v;
+}
+setTimeout(() => window.location.reload(), 30000);
 </script>
 {% endblock %}

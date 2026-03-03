@@ -89,6 +89,8 @@ last_alive: Dict[Tuple[int, int], float] = {}
 # 이전 active_tables 상태 저장 (자동 open/close 감지용)
 # store_id → set of table_num
 prev_active_tables: Dict[int, set] = {}
+# ADB 연결 상태: store_id → bool (키오스크가 1분마다 POST)
+adb_status_store: Dict[int, bool] = {}
 
 # 정적 파일 & 템플릿 설정
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -387,26 +389,29 @@ async def api_tables(request: Request):
 
     store_id = int(store_id)
 
+    # kiosk_config 에서 테이블 수 읽기
+    kc = crud.get_kiosk_config(store_id)
+    table_count = kc["table_count"] if kc else 4
+
     # 사용 중인 테이블 (예약/남은 시간)
     rows = crud.list_active_reservations(store_id)
     active_tables = {table: remain for table, remain in rows}
     now = time.time()
 
-    # alive 상태 계산 (clients 딕셔너리 기반)
+    # alive(WS 연결) 상태
     alive_tables = {}
-    for i in range(1, 5):
+    for i in range(1, table_count + 1):
         key = (store_id, i)
         last = last_alive.get(key)
-        if key in clients and last and (now - last <= ALIVE_TIMEOUT):
-            alive_tables[i] = True
-        else:
-            alive_tables[i] = False
+        alive_tables[i] = bool(key in clients and last and (now - last <= ALIVE_TIMEOUT))
 
-    # ✅ 이전 상태와 비교하여 자동 open/close 명령 전송
+    # ADB 연결 상태 (키오스크가 1분마다 POST로 push)
+    adb_connected = adb_status_store.get(store_id, None)
+
+    # 이전 상태와 비교하여 자동 open/close 명령 전송
     current_set = set(active_tables.keys())
     prev_set = prev_active_tables.get(store_id, set())
 
-    # 새로 결제되어 남은시간이 생긴 테이블 → 열기 (10초 간격 순차 전송)
     newly_active = sorted(current_set - prev_set)
     for i, table_num in enumerate(newly_active):
         if i > 0:
@@ -414,7 +419,6 @@ async def api_tables(request: Request):
         print(f"[AUTO OPEN] store={store_id}, table={table_num}")
         await safe_send((store_id, table_num), "open")
 
-    # 남은시간이 사라진 테이블 → 닫기 (10초 간격 순차 전송)
     newly_inactive = sorted(prev_set - current_set)
     for i, table_num in enumerate(newly_inactive):
         if i > 0:
@@ -422,16 +426,17 @@ async def api_tables(request: Request):
         print(f"[AUTO CLOSE] store={store_id}, table={table_num}")
         await safe_send((store_id, table_num), "close")
 
-    # 현재 상태 저장
     prev_active_tables[store_id] = current_set
 
     return templates.TemplateResponse(
         "table.html",
         {
-            "request": request, 
+            "request": request,
             "store_id": store_id,
+            "table_count": table_count,
             "active_tables": active_tables,
             "alive_tables": alive_tables,
+            "adb_connected": adb_connected,
         }
     )
 
@@ -667,6 +672,21 @@ async def close_blind(store_id: int, table_num: int):
     return RedirectResponse(url="/table", status_code=303)
 
 
+
+
+# ── 시간 추가/감소 (서버 → 키오스크 WS 명령) ─────────────────────────────────
+@app.post("/table/{store_id}/{table_num}/add_time")
+async def add_time(store_id: int, table_num: int, minutes: int = Form(...)):
+    """서버에서 해당 테이블 키오스크로 add_time:{minutes} 명령 전송."""
+    await safe_send((store_id, table_num), f"add_time:{minutes}")
+    return RedirectResponse(url="/table", status_code=303)
+
+
+# ── ADB 상태 수신 (키오스크가 1분마다 POST) ──────────────────────────────────
+@app.post("/api/adb_status/{store_id}")
+async def receive_adb_status(store_id: int, connected: str = Form(...)):
+    adb_status_store[store_id] = connected.lower() in ("true", "1", "yes")
+    return {"ok": True}
 
 
 # ══════════════════════════════════════════════════════════════
