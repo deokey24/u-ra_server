@@ -198,10 +198,6 @@ def api_reservations_range(request: Request, start: str, end: str, store_id: int
     else:
         target_store_id = cookie_store_id
 
-    # store_id=4 는 데이터 비공개
-    if target_store_id == 4:
-        return JSONResponse([])
-
     rows = crud.list_reservations_by_range(start, end, target_store_id)
     return JSONResponse(rows)
 
@@ -531,7 +527,7 @@ def add_menu(
     store_id: int = Form(...),
     menu_name: str = Form(...),
     price: int = Form(...),
-    minutes: int = Form(...),
+    minutes: Optional[int] = Form(0),  # 회원권 상품은 0
     always_visible: Optional[int] = Form(0),
     start_date: Optional[str] = Form(None),
     end_date: Optional[str] = Form(None),

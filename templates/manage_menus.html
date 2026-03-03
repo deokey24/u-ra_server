@@ -318,8 +318,8 @@
           </div>
         </div>
 
-        <div class="section-label" data-av-hide>기간</div>
-        <div class="form-row" data-av-hide>
+        <div class="section-label">기간</div>
+        <div class="form-row">
           <div class="form-field">
             <label>시작날짜</label>
             <input type="date" name="start_date" value="{{ m[7] or '' }}">
@@ -330,8 +330,8 @@
           </div>
         </div>
 
-        <div class="section-label" data-av-hide>시간대</div>
-        <div class="form-row" data-av-hide>
+        <div class="section-label">시간대</div>
+        <div class="form-row">
           <div class="form-field">
             <label>시작시간</label>
             <input type="time" name="start_time" value="{{ m[5] or '' }}">
@@ -373,7 +373,7 @@
     <div class="form-row">
       <div class="form-field">
         <label>시간 (분)</label>
-        <input type="number" name="minutes" placeholder="60" required>
+        <input type="number" name="minutes" placeholder="60 (회원권은 0 입력 가능)" id="minutes_new">
       </div>
       <div style="display:flex; flex-direction:column; justify-content:flex-end; padding-bottom:2px;">
         <input type="hidden" name="always_visible" value="0">
@@ -399,8 +399,8 @@
       </div>
     </div>
 
-    <div class="section-label" data-av-hide>기간</div>
-    <div class="form-row" data-av-hide>
+    <div class="section-label">기간</div>
+    <div class="form-row">
       <div class="form-field">
         <label>시작날짜</label>
         <input type="date" name="start_date">
@@ -411,8 +411,8 @@
       </div>
     </div>
 
-    <div class="section-label" data-av-hide>시간대</div>
-    <div class="form-row" data-av-hide>
+    <div class="section-label">시간대</div>
+    <div class="form-row">
       <div class="form-field">
         <label>시작시간</label>
         <input type="time" name="start_time">
@@ -445,9 +445,24 @@
   function syncMS(form){
     const chk = form.querySelector('.is-membership-chk');
     const sec = form.querySelector('.ms-section');
+    const minutesInput = form.querySelector('input[name="minutes"]');
     if(!chk || !sec) return;
-    if(chk.checked) sec.classList.add('show');
-    else sec.classList.remove('show');
+    if(chk.checked){
+      sec.classList.add('show');
+      // 회원권이면 시간 입력 불필요 - 0으로 고정하고 숨김
+      if(minutesInput){
+        minutesInput.value = '0';
+        minutesInput.closest('.form-field').style.display = 'none';
+        minutesInput.removeAttribute('required');
+      }
+    } else {
+      sec.classList.remove('show');
+      if(minutesInput){
+        minutesInput.value = '';
+        minutesInput.closest('.form-field').style.display = '';
+        minutesInput.setAttribute('required', '');
+      }
+    }
   }
 
   document.querySelectorAll('form.menu-form').forEach(form => {
