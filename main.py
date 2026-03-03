@@ -198,6 +198,10 @@ def api_reservations_range(request: Request, start: str, end: str, store_id: int
     else:
         target_store_id = cookie_store_id
 
+    # store_id=4 는 데이터 비공개
+    if target_store_id == 4:
+        return JSONResponse([])
+
     rows = crud.list_reservations_by_range(start, end, target_store_id)
     return JSONResponse(rows)
 
@@ -315,8 +319,8 @@ def all_list_page(request: Request):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
-    # 점포 목록 (관리자용 id=0, 비공개 id=4 제외)
-    cur.execute("SELECT id, name, location FROM stores WHERE id NOT IN (0, 4)")
+    # 점포 목록
+    cur.execute("SELECT id, name, location FROM stores")
     stores = cur.fetchall()
 
     if not store_id or int(store_id) != 0:

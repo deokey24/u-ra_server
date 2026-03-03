@@ -318,8 +318,8 @@
           </div>
         </div>
 
-        <div class="section-label">기간</div>
-        <div class="form-row">
+        <div class="section-label" data-av-hide>기간</div>
+        <div class="form-row" data-av-hide>
           <div class="form-field">
             <label>시작날짜</label>
             <input type="date" name="start_date" value="{{ m[7] or '' }}">
@@ -330,8 +330,8 @@
           </div>
         </div>
 
-        <div class="section-label">시간대</div>
-        <div class="form-row">
+        <div class="section-label" data-av-hide>시간대</div>
+        <div class="form-row" data-av-hide>
           <div class="form-field">
             <label>시작시간</label>
             <input type="time" name="start_time" value="{{ m[5] or '' }}">
@@ -399,8 +399,8 @@
       </div>
     </div>
 
-    <div class="section-label">기간</div>
-    <div class="form-row">
+    <div class="section-label" data-av-hide>기간</div>
+    <div class="form-row" data-av-hide>
       <div class="form-field">
         <label>시작날짜</label>
         <input type="date" name="start_date">
@@ -411,8 +411,8 @@
       </div>
     </div>
 
-    <div class="section-label">시간대</div>
-    <div class="form-row">
+    <div class="section-label" data-av-hide>시간대</div>
+    <div class="form-row" data-av-hide>
       <div class="form-field">
         <label>시작시간</label>
         <input type="time" name="start_time">
@@ -435,12 +435,10 @@
 (function(){
   function syncAV(form){
     const av = form.querySelector('input[type="checkbox"][name="always_visible"]');
-    const fields = ['start_date','end_date','start_time','end_time']
-      .map(n => form.querySelector(`[name="${n}"]`)).filter(Boolean);
+    const targets = form.querySelectorAll('[data-av-hide]');
     if(!av) return;
-    fields.forEach(el => {
-      el.disabled = av.checked;
-      if(av.checked) el.value = '';
+    targets.forEach(el => {
+      el.style.display = av.checked ? 'none' : '';
     });
   }
 
