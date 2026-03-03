@@ -1,172 +1,431 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  .card {
-    border:1px solid #ccc;
-    border-radius:6px;
-    padding:10px;
-    background:#fafafa;
-    display:flex;
-    flex-direction:column;
-    justify-content:space-between;
+  :root {
+    --primary: #2563eb;
+    --primary-light: #eff6ff;
+    --danger: #ef4444;
+    --danger-light: #fef2f2;
+    --success: #16a34a;
+    --success-light: #f0fdf4;
+    --warning: #d97706;
+    --warning-light: #fffbeb;
+    --border: #e5e7eb;
+    --text: #111827;
+    --muted: #6b7280;
+    --card-bg: #ffffff;
+    --bg: #f9fafb;
+    --radius: 12px;
   }
-  .stack {display:flex; flex-direction:column; gap:8px}
-  .menu-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+
+  * { box-sizing: border-box; }
+
+  body { background: var(--bg); }
+
+  .page-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 16px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ── 요약 테이블 → 카드 스택 (모바일) ── */
+  .summary-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+
+  .summary-item {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
     gap: 12px;
+    cursor: pointer;
+    transition: box-shadow .15s, border-color .15s;
   }
-  table.menus {width:100%; border-collapse:collapse; font-size:13px; margin-bottom:20px;}
-  table.menus th, table.menus td {border:1px solid #ccc; padding:6px; text-align:center;}
-  table.menus th {background:#eee;}
-  .ellipsis {
-    max-width:150px;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
+  .summary-item:hover { border-color: var(--primary); box-shadow: 0 2px 8px rgba(37,99,235,.1); }
+
+  .summary-item .sid {
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 2px 7px;
+    min-width: 32px;
+    text-align: center;
+    flex-shrink: 0;
   }
-  .membership-section {
-    display:none;
-    border:1px solid #f0a500;
-    border-radius:4px;
-    padding:6px;
-    margin-top:6px;
-    background:#fffbf0;
+  .summary-item .sname {
+    font-weight: 600;
+    font-size: 14px;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .membership-section.show { display:block; }
+  .summary-item .smeta {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .summary-item .sbadges { display: flex; gap: 4px; flex-shrink: 0; }
+
+  .badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+  .badge-ms  { background: var(--warning-light); color: var(--warning); }
+  .badge-av  { background: var(--success-light);  color: var(--success); }
+  .badge-no  { background: var(--bg); color: var(--muted); }
+
+  /* ── 편집 카드 ── */
+  .menu-grid { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: box-shadow .15s;
+  }
+  .card:focus-within { box-shadow: 0 0 0 3px rgba(37,99,235,.15); border-color: var(--primary); }
+
+  .card-header {
+    padding: 10px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-header .card-id { color: var(--primary); }
+
+  .card-body { padding: 14px; }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .form-row.single { grid-template-columns: 1fr; }
+
+  .form-field { display: flex; flex-direction: column; gap: 4px; }
+  .form-field label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+  .form-field input[type=text],
+  .form-field input[type=number],
+  .form-field input[type=date],
+  .form-field input[type=time] {
+    padding: 9px 11px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text);
+    background: #fff;
+    width: 100%;
+    transition: border-color .15s;
+  }
+  .form-field input:focus { outline: none; border-color: var(--primary); }
+  .form-field input:disabled { background: var(--bg); color: var(--muted); }
+
+  /* 체크박스 토글 */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+  }
+  .toggle-row input[type=checkbox] { display: none; }
+  .toggle-pill {
+    width: 40px; height: 22px;
+    background: #d1d5db;
+    border-radius: 11px;
+    position: relative;
+    cursor: pointer;
+    transition: background .2s;
+    flex-shrink: 0;
+  }
+  .toggle-pill::after {
+    content: '';
+    position: absolute;
+    width: 18px; height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    top: 2px; left: 2px;
+    transition: transform .2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  }
+  input[type=checkbox]:checked + .toggle-pill { background: var(--primary); }
+  input[type=checkbox]:checked + .toggle-pill::after { transform: translateX(18px); }
+  .toggle-label { font-size: 13px; font-weight: 600; color: var(--text); }
+  .toggle-label.ms { color: var(--warning); }
+
+  /* 회원권 유효기간 */
+  .ms-section {
+    display: none;
+    background: var(--warning-light);
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 10px;
+    margin: 6px 0;
+  }
+  .ms-section.show { display: block; }
+
+  /* 기간/시간대 섹션 */
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin: 10px 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* 버튼 */
+  .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .btn {
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-danger  { background: var(--danger);  color: #fff; }
+  .btn-success { background: var(--success); color: #fff; }
+
+  /* 메뉴 추가 카드 */
+  .add-card {
+    background: var(--card-bg);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 24px;
+    transition: border-color .15s;
+  }
+  .add-card:focus-within { border-color: var(--success); border-style: solid; }
+
+  /* 접기/펼치기 */
+  .collapsible-body { display: none; }
+  .collapsible-body.open { display: block; }
+  .collapse-btn {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0;
+    font-weight: 600;
+  }
 </style>
 
-<h1 style="font-size:20px; margin-bottom:10px;">메뉴 요약</h1>
-<table class="menus">
-  <thead>
-    <tr>
-      <th>ID</th><th>메뉴명</th><th>가격</th><th>시간(분)</th>
-      <th>항상노출</th><th>회원권</th><th>유효기간(일)</th><th>기간</th><th>시간대</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for m in menus %}
-    <tr>
-      <td>{{ m[0] }}</td>
-      <td class="ellipsis" title="{{ m[1] }}">{{ m[1] }}</td>
-      <td>{{ m[2] }}</td>
-      <td>{{ m[3] }}</td>
-      <td>{% if m[4]==1 %}✅{% else %}❌{% endif %}</td>
-      <td>{% if m[9]==1 %}🎫{% else %}-{% endif %}</td>
-      <td>{% if m[9]==1 %}{{ m[10] }}일{% else %}-{% endif %}</td>
-      <td>{{ m[7] or '-' }} ~ {{ m[8] or '-' }}</td>
-      <td>{{ m[5] or '-' }} ~ {{ m[6] or '-' }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="page-title">📋 메뉴 요약</div>
 
-<h1 style="font-size:20px; margin-bottom:15px;">메뉴 관리</h1>
-
-<div class="menu-grid">
+<div class="summary-list">
   {% for m in menus %}
-  <div class="card" id="menu_{{ m[0] }}">
-  <form method="post" action="/menu/update" class="menu-form">
-    <input type="hidden" name="menu_id" value="{{ m[0] }}">
-    <div style="font-weight:bold; margin-bottom:6px;">#{{ m[0] }} 메뉴</div>
-
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:12px; margin-bottom:8px;">
-      <label>메뉴명
-        <input type="text" name="menu_name" value="{{ m[1] }}" required>
-      </label>
-      <label>금액(원)
-        <input type="number" name="price" value="{{ m[2] }}" required>
-      </label>
-      <label>시간(분)
-        <input type="number" name="minutes" value="{{ m[3] }}" required>
-      </label>
-      <label style="display:flex; align-items:center; gap:4px; margin-top:18px;">
-        <input type="hidden" name="always_visible" value="0">
-        <input type="checkbox" name="always_visible" value="1" {% if m[4] == 1 %}checked{% endif %}>
-        항상 노출
-      </label>
-    </div>
-
-    <!-- 회원권 체크박스 -->
-    <div style="margin-bottom:6px; font-size:12px; display:flex; align-items:center; gap:6px;">
-      <input type="hidden" name="is_membership" value="0">
-      <input type="checkbox" class="is-membership-chk" name="is_membership" value="1"
-             {% if m[9] == 1 %}checked{% endif %} id="ms_chk_{{ m[0] }}">
-      <label for="ms_chk_{{ m[0] }}" style="cursor:pointer; color:#b87700; font-weight:bold;">🎫 회원권 상품</label>
-    </div>
-
-    <!-- 회원권 유효기간 (체크 시 표시) -->
-    <div class="membership-section {% if m[9] == 1 %}show{% endif %}">
-      <label style="font-size:12px;">회원권 유효기간 (일)
-        <input type="number" name="membership_days" value="{{ m[10] or 30 }}" min="1" style="width:80px;">
-        일
-      </label>
-    </div>
-
-    <fieldset style="border:1px solid #ccc; border-radius:4px; padding:6px; margin-bottom:8px; margin-top:6px;">
-      <legend style="font-size:12px; padding:0 4px;">기간</legend>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:12px;">
-        <label>시작날짜 <input type="date" name="start_date" value="{{ m[7] or '' }}"></label>
-        <label>종료날짜 <input type="date" name="end_date"   value="{{ m[8] or '' }}"></label>
-      </div>
-    </fieldset>
-
-    <fieldset style="border:1px solid #ccc; border-radius:4px; padding:6px; margin-bottom:8px;">
-      <legend style="font-size:12px; padding:0 4px;">시간대</legend>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:12px;">
-        <label>시작시간 <input type="time" name="start_time" value="{{ m[5] or '' }}"></label>
-        <label>종료시간 <input type="time" name="end_time"   value="{{ m[6] or '' }}"></label>
-      </div>
-    </fieldset>
-
-    <div style="margin-top:6px; display:flex; gap:6px;">
-      <button type="submit" style="flex:1; padding:5px; background:#2196f3; color:white; border:none; border-radius:4px; font-size:12px;">저장</button>
-      <button type="submit" formaction="/menu/delete" style="flex:1; padding:5px; background:#f44336; color:white; border:none; border-radius:4px; font-size:12px;" onclick="return confirm('삭제하시겠습니까?')">삭제</button>
-    </div>
-  </form>
+  <div class="summary-item" onclick="scrollToMenu({{ m[0] }})">
+    <span class="sid">#{{ m[0] }}</span>
+    <span class="sname">{{ m[1] }}</span>
+    <span class="smeta">{{ m[2] }}원 · {{ m[3] }}분</span>
+    <span class="sbadges">
+      {% if m[4]==1 %}<span class="badge badge-av">노출</span>{% endif %}
+      {% if m[9]==1 %}<span class="badge badge-ms">🎫</span>{% endif %}
+    </span>
   </div>
   {% endfor %}
 </div>
 
-<br>
-<h1 style="font-size:20px; margin-bottom:15px;">메뉴 추가</h1>
+<div class="page-title">⚙️ 메뉴 관리</div>
 
-<div class="card" style="margin-bottom:20px;">
+<div class="menu-grid">
+  {% for m in menus %}
+  <div class="card" id="menu_{{ m[0] }}">
+    <div class="card-header">
+      <span><span class="card-id">#{{ m[0] }}</span> {{ m[1] }}</span>
+      <button class="collapse-btn" onclick="toggleCard(this)">접기 ▲</button>
+    </div>
+    <div class="card-body collapsible-body open">
+      <form method="post" action="/menu/update" class="menu-form">
+        <input type="hidden" name="menu_id" value="{{ m[0] }}">
+
+        <div class="form-row">
+          <div class="form-field">
+            <label>메뉴명</label>
+            <input type="text" name="menu_name" value="{{ m[1] }}" required>
+          </div>
+          <div class="form-field">
+            <label>금액 (원)</label>
+            <input type="number" name="price" value="{{ m[2] }}" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label>시간 (분)</label>
+            <input type="number" name="minutes" value="{{ m[3] }}" required>
+          </div>
+          <div style="display:flex; flex-direction:column; justify-content:flex-end; padding-bottom:2px;">
+            <input type="hidden" name="always_visible" value="0">
+            <div class="toggle-row">
+              <input type="checkbox" name="always_visible" value="1"
+                     {% if m[4]==1 %}checked{% endif %}
+                     id="av_{{ m[0] }}">
+              <label class="toggle-pill" for="av_{{ m[0] }}"></label>
+              <span class="toggle-label">항상 노출</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 회원권 토글 -->
+        <input type="hidden" name="is_membership" value="0">
+        <div class="toggle-row">
+          <input type="checkbox" class="is-membership-chk" name="is_membership" value="1"
+                 {% if m[9]==1 %}checked{% endif %} id="ms_chk_{{ m[0] }}">
+          <label class="toggle-pill" for="ms_chk_{{ m[0] }}"></label>
+          <span class="toggle-label ms">🎫 회원권 상품</span>
+        </div>
+
+        <div class="ms-section {% if m[9]==1 %}show{% endif %}">
+          <div class="form-field">
+            <label>회원권 유효기간 (일)</label>
+            <input type="number" name="membership_days" value="{{ m[10] or 30 }}" min="1">
+          </div>
+        </div>
+
+        <div class="section-label">기간</div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>시작날짜</label>
+            <input type="date" name="start_date" value="{{ m[7] or '' }}">
+          </div>
+          <div class="form-field">
+            <label>종료날짜</label>
+            <input type="date" name="end_date" value="{{ m[8] or '' }}">
+          </div>
+        </div>
+
+        <div class="section-label">시간대</div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>시작시간</label>
+            <input type="time" name="start_time" value="{{ m[5] or '' }}">
+          </div>
+          <div class="form-field">
+            <label>종료시간</label>
+            <input type="time" name="end_time" value="{{ m[6] or '' }}">
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button type="submit" class="btn btn-primary">💾 저장</button>
+          <button type="submit" formaction="/menu/delete" class="btn btn-danger"
+                  onclick="return confirm('삭제하시겠습니까?')">🗑 삭제</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="page-title">➕ 메뉴 추가</div>
+
+<div class="add-card">
   <form method="post" action="/menu/add" class="menu-form" id="add-form">
     <input type="hidden" name="store_id" value="{{ store_id }}">
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:12px;">
-      <input type="text"   name="menu_name" placeholder="메뉴명" required>
-      <input type="number" name="price"     placeholder="가격" required>
-      <input type="number" name="minutes"   placeholder="시간(분)" required>
 
-      <label style="display:flex; align-items:center; gap:4px; font-size:12px;">
+    <div class="form-row">
+      <div class="form-field">
+        <label>메뉴명</label>
+        <input type="text" name="menu_name" placeholder="예: 60분 이용권" required>
+      </div>
+      <div class="form-field">
+        <label>금액 (원)</label>
+        <input type="number" name="price" placeholder="12000" required>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label>시간 (분)</label>
+        <input type="number" name="minutes" placeholder="60" required>
+      </div>
+      <div style="display:flex; flex-direction:column; justify-content:flex-end; padding-bottom:2px;">
         <input type="hidden" name="always_visible" value="0">
-        <input id="av_new" type="checkbox" name="always_visible" value="1" checked>
-        항상 노출
-      </label>
-
-      <input type="date" name="start_date">
-      <input type="date" name="end_date">
-      <input type="time" name="start_time">
-      <input type="time" name="end_time">
+        <div class="toggle-row">
+          <input type="checkbox" name="always_visible" value="1" id="av_new" checked>
+          <label class="toggle-pill" for="av_new"></label>
+          <span class="toggle-label">항상 노출</span>
+        </div>
+      </div>
     </div>
 
-    <!-- 회원권 체크박스 (추가폼) -->
-    <div style="margin-top:8px; font-size:12px; display:flex; align-items:center; gap:6px;">
-      <input type="hidden" name="is_membership" value="0">
+    <!-- 회원권 토글 -->
+    <input type="hidden" name="is_membership" value="0">
+    <div class="toggle-row">
       <input type="checkbox" class="is-membership-chk" name="is_membership" value="1" id="ms_chk_new">
-      <label for="ms_chk_new" style="cursor:pointer; color:#b87700; font-weight:bold;">🎫 회원권 상품</label>
+      <label class="toggle-pill" for="ms_chk_new"></label>
+      <span class="toggle-label ms">🎫 회원권 상품</span>
     </div>
-    <div class="membership-section" id="ms_section_new" style="margin-top:4px;">
-      <label style="font-size:12px;">회원권 유효기간 (일)
-        <input type="number" name="membership_days" value="30" min="1" style="width:80px;">
-        일
-      </label>
+    <div class="ms-section" id="ms_section_new">
+      <div class="form-field">
+        <label>회원권 유효기간 (일)</label>
+        <input type="number" name="membership_days" value="30" min="1">
+      </div>
     </div>
 
-    <div style="margin-top:8px;">
-      <button type="submit" style="width:100%; padding:6px; background:#4caf50; color:white; border:none; border-radius:4px; font-size:13px;">
-        메뉴 추가
+    <div class="section-label">기간</div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>시작날짜</label>
+        <input type="date" name="start_date">
+      </div>
+      <div class="form-field">
+        <label>종료날짜</label>
+        <input type="date" name="end_date">
+      </div>
+    </div>
+
+    <div class="section-label">시간대</div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>시작시간</label>
+        <input type="time" name="start_time">
+      </div>
+      <div class="form-field">
+        <label>종료시간</label>
+        <input type="time" name="end_time">
+      </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <button type="submit" class="btn btn-success" style="width:100%; padding:12px;">
+        ➕ 메뉴 추가
       </button>
     </div>
   </form>
@@ -174,7 +433,6 @@
 
 <script>
 (function(){
-  // 항상노출 체크 시 기간/시간대 비활성
   function syncAV(form){
     const av = form.querySelector('input[type="checkbox"][name="always_visible"]');
     const fields = ['start_date','end_date','start_time','end_time']
@@ -186,10 +444,9 @@
     });
   }
 
-  // 회원권 체크 시 유효기간 섹션 토글
   function syncMS(form){
     const chk = form.querySelector('.is-membership-chk');
-    const sec = form.querySelector('.membership-section');
+    const sec = form.querySelector('.ms-section');
     if(!chk || !sec) return;
     if(chk.checked) sec.classList.add('show');
     else sec.classList.remove('show');
@@ -204,5 +461,26 @@
     if(ms) ms.addEventListener('change', () => syncMS(form));
   });
 })();
+
+function scrollToMenu(id) {
+  const el = document.getElementById('menu_' + id);
+  if(!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // 접혀있으면 펼치기
+  const body = el.querySelector('.collapsible-body');
+  const btn  = el.querySelector('.collapse-btn');
+  if(body && !body.classList.contains('open')){
+    body.classList.add('open');
+    if(btn) btn.textContent = '접기 ▲';
+  }
+  el.style.borderColor = 'var(--primary)';
+  setTimeout(() => el.style.borderColor = '', 1500);
+}
+
+function toggleCard(btn) {
+  const body = btn.closest('.card').querySelector('.collapsible-body');
+  const open = body.classList.toggle('open');
+  btn.textContent = open ? '접기 ▲' : '펼치기 ▼';
+}
 </script>
 {% endblock %}

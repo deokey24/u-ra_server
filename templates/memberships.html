@@ -1,165 +1,168 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  table.mb { width:100%; border-collapse:collapse; font-size:13px; margin-bottom:20px; }
-  table.mb th, table.mb td { border:1px solid #ccc; padding:7px 8px; text-align:center; }
-  table.mb th { background:#eee; }
-  .badge-active   { background:#d4edda; color:#155724; border-radius:4px; padding:2px 7px; font-size:11px; }
-  .badge-expired  { background:#f8d7da; color:#721c24; border-radius:4px; padding:2px 7px; font-size:11px; }
-  .badge-upcoming { background:#fff3cd; color:#856404; border-radius:4px; padding:2px 7px; font-size:11px; }
-  .add-card { border:1px solid #ccc; border-radius:6px; padding:14px; background:#fafafa; max-width:480px; margin-bottom:24px; }
-  .add-card label { font-size:13px; display:flex; flex-direction:column; gap:3px; }
-  .add-card input, .add-card select { padding:5px; border:1px solid #bbb; border-radius:4px; font-size:13px; }
-  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .filter-bar { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+  :root {
+    --primary:#2563eb; --danger:#ef4444; --danger-light:#fef2f2;
+    --success:#16a34a; --success-light:#f0fdf4;
+    --warning:#d97706; --warning-light:#fffbeb;
+    --border:#e5e7eb; --text:#111827; --muted:#6b7280;
+    --card-bg:#ffffff; --bg:#f9fafb; --radius:12px;
+  }
+  *{box-sizing:border-box;}
+  .page-title{font-size:18px;font-weight:700;color:var(--text);margin:16px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--primary);}
+  .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+  .stat-card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px 12px;text-align:center;}
+  .stat-card .stat-num{font-size:24px;font-weight:800;line-height:1;margin-bottom:4px;}
+  .stat-card .stat-label{font-size:11px;color:var(--muted);font-weight:600;}
+  .stat-active .stat-num{color:var(--success);} .stat-expired .stat-num{color:var(--danger);} .stat-all .stat-num{color:var(--primary);}
+  .filter-bar{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:14px;display:flex;flex-direction:column;gap:8px;}
+  .filter-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .filter-field{display:flex;flex-direction:column;gap:3px;}
+  .filter-field label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;}
+  .filter-field select,.filter-field input{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:#fff;color:var(--text);width:100%;}
+  .filter-field select:focus,.filter-field input:focus{outline:none;border-color:var(--primary);}
+  .search-wrap{position:relative;} .search-wrap input{padding-left:32px;}
+  .search-wrap::before{content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;}
+  .result-info{font-size:12px;color:var(--muted);margin-bottom:8px;text-align:right;}
+  .member-list{display:flex;flex-direction:column;gap:10px;margin-bottom:24px;}
+  .member-card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;transition:box-shadow .15s;}
+  .member-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.07);} .member-card.status-expired{opacity:.6;}
+  .member-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .member-phone{font-size:16px;font-weight:700;color:var(--text);letter-spacing:.5px;}
+  .badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;}
+  .badge-active{background:var(--success-light);color:var(--success);} .badge-expired{background:var(--danger-light);color:var(--danger);} .badge-upcoming{background:var(--warning-light);color:var(--warning);}
+  .member-meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:12px;color:var(--muted);margin-bottom:10px;}
+  .member-meta span{display:flex;gap:4px;align-items:center;} .member-meta strong{color:var(--text);}
+  .progress-wrap{margin-bottom:10px;}
+  .progress-label{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:3px;}
+  .progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+  .progress-fill{height:100%;border-radius:3px;background:var(--success);transition:width .3s;}
+  .progress-fill.expired{background:var(--danger);} .progress-fill.upcoming{background:var(--warning);}
+  .member-foot{display:flex;justify-content:flex-end;}
+  .btn-del{background:none;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:12px;color:var(--danger);cursor:pointer;transition:background .15s,border-color .15s;}
+  .btn-del:hover{background:var(--danger-light);border-color:var(--danger);}
+  .empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
+  .empty-state .empty-icon{font-size:40px;margin-bottom:8px;} .empty-state p{font-size:14px;}
 </style>
 
-<h1 style="font-size:20px; margin-bottom:14px;">🎫 회원권 관리</h1>
+<div class="page-title">🎫 회원권 현황</div>
 
-<!-- 회원권 추가 폼 -->
-<div class="add-card">
-  <h2 style="font-size:15px; margin-bottom:10px;">회원권 추가</h2>
-  <form method="post" action="/membership/add">
-    {% if store_id == 0 %}
-    <div style="margin-bottom:8px;">
-      <label>지점 선택
-        <select name="store_id" required>
-          {% for s in stores %}
-          <option value="{{ s[0] }}">{{ s[1] }}</option>
-          {% endfor %}
-        </select>
-      </label>
-    </div>
-    {% else %}
-    <input type="hidden" name="store_id" value="{{ store_id }}">
-    {% endif %}
-
-    <div class="grid2" style="margin-bottom:8px;">
-      <label>전화번호
-        <input type="text" name="phone" placeholder="01012345678" required>
-      </label>
-      <label>회원권명
-        <input type="text" name="menu_name" placeholder="예: 한달 이용권" required>
-      </label>
-      <label>시작일
-        <input type="date" name="start_date" required>
-      </label>
-      <label>종료일
-        <input type="date" name="end_date" required>
-      </label>
-    </div>
-
-    <button type="submit" style="width:100%; padding:7px; background:#4caf50; color:white; border:none; border-radius:4px; font-size:13px; cursor:pointer;">
-      추가
-    </button>
-  </form>
+<div class="stats-row">
+  <div class="stat-card stat-all"><div class="stat-num" id="stat-all">0</div><div class="stat-label">전체</div></div>
+  <div class="stat-card stat-active"><div class="stat-num" id="stat-active">0</div><div class="stat-label">유효</div></div>
+  <div class="stat-card stat-expired"><div class="stat-num" id="stat-expired">0</div><div class="stat-label">만료</div></div>
 </div>
 
-<!-- 필터 (관리자 전용) -->
-{% if store_id == 0 %}
 <div class="filter-bar">
-  <label style="font-size:13px;">지점 필터:
-    <select id="store-filter" onchange="filterTable()">
-      <option value="">전체</option>
-      {% for s in stores %}
-      <option value="{{ s[0] }}">{{ s[1] }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label style="font-size:13px;">상태:
-    <select id="status-filter" onchange="filterTable()">
-      <option value="">전체</option>
-      <option value="active">유효</option>
-      <option value="expired">만료</option>
-      <option value="upcoming">예정</option>
-    </select>
-  </label>
+  <div class="filter-row">
+    {% if store_id == 0 %}
+    <div class="filter-field">
+      <label>지점</label>
+      <select id="store-filter" onchange="applyFilter()">
+        <option value="">전체</option>
+        {% for s in stores %}<option value="{{ s[0] }}">{{ s[1] }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="filter-field">
+      <label>상태</label>
+      <select id="status-filter" onchange="applyFilter()">
+        <option value="">전체</option>
+        <option value="active">유효</option>
+        <option value="expired">만료</option>
+        <option value="upcoming">예정</option>
+      </select>
+    </div>
+    <div class="filter-field">
+      <label>회원권명</label>
+      <select id="menu-filter" onchange="applyFilter()"><option value="">전체</option></select>
+    </div>
+  </div>
+  <div class="filter-field search-wrap">
+    <label>전화번호 검색</label>
+    <input type="text" id="phone-search" placeholder="번호 일부 입력..." oninput="applyFilter()">
+  </div>
 </div>
-{% endif %}
 
-<!-- 회원권 목록 -->
-<table class="mb" id="mb-table">
-  <thead>
-    <tr>
-      <th>#</th>
-      {% if store_id == 0 %}<th>지점</th>{% endif %}
-      <th>전화번호</th>
-      <th>회원권명</th>
-      <th>시작일</th>
-      <th>종료일</th>
-      <th>상태</th>
-      <th>등록일</th>
-      <th>삭제</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for m in memberships %}
-    <tr data-store="{{ m.store_id }}" data-start="{{ m.start_date }}" data-end="{{ m.end_date }}">
-      <td>{{ m.id }}</td>
-      {% if store_id == 0 %}<td>{{ m.store_name or m.store_id }}</td>{% endif %}
-      <td>{{ m.phone }}</td>
-      <td>{{ m.menu_name }}</td>
-      <td>{{ m.start_date }}</td>
-      <td>{{ m.end_date }}</td>
-      <td class="status-cell"></td>
-      <td>{{ m.created_at[:10] }}</td>
-      <td>
-        <form method="post" action="/membership/delete" style="display:inline;" onsubmit="return confirm('삭제하시겠습니까?')">
-          <input type="hidden" name="mid" value="{{ m.id }}">
-          <button style="background:#f44336; color:white; border:none; border-radius:4px; padding:3px 10px; cursor:pointer; font-size:12px;">삭제</button>
-        </form>
-      </td>
-    </tr>
-    {% else %}
-    <tr><td colspan="9" style="color:#aaa; padding:20px;">등록된 회원권이 없습니다.</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="result-info"><span id="result-count">0</span>명 표시 중</div>
+
+<div class="member-list">
+  {% for m in memberships %}
+  <div class="member-card" data-store="{{ m.store_id }}" data-start="{{ m.start_date }}" data-end="{{ m.end_date }}" data-phone="{{ m.phone }}" data-menu="{{ m.menu_name }}">
+    <div class="member-top">
+      <span class="member-phone">{{ m.phone }}</span>
+      <span class="badge status-badge"></span>
+    </div>
+    <div class="member-meta">
+      <span>🎫 <strong>{{ m.menu_name }}</strong></span>
+      <span>📅 <strong>{{ m.start_date }}</strong> ~ <strong>{{ m.end_date }}</strong></span>
+      <span>📝 등록 {{ m.created_at[:10] }}</span>
+      {% if store_id == 0 %}<span>🏪 <strong>{{ m.store_name or m.store_id }}</strong></span>{% endif %}
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-label"><span class="days-left"></span><span class="days-total"></span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="member-foot">
+      <form method="post" action="/membership/delete" style="display:inline;" onsubmit="return confirm('삭제하시겠습니까?')">
+        <input type="hidden" name="mid" value="{{ m.id }}">
+        <button class="btn-del" type="submit">삭제</button>
+      </form>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state"><div class="empty-icon">🎫</div><p>등록된 회원권이 없습니다.</p></div>
+  {% endfor %}
+</div>
 
 <script>
-const today = new Date().toISOString().slice(0, 10);
-
-function getStatus(start, end) {
-  if (end < today) return 'expired';
-  if (start > today) return 'upcoming';
-  return 'active';
-}
-
-function statusBadge(st) {
-  if (st === 'active')   return '<span class="badge-active">유효</span>';
-  if (st === 'expired')  return '<span class="badge-expired">만료</span>';
-  return '<span class="badge-upcoming">예정</span>';
-}
-
-// 상태 배지 초기 렌더링
-document.querySelectorAll('#mb-table tbody tr[data-start]').forEach(tr => {
-  const st = getStatus(tr.dataset.start, tr.dataset.end);
-  tr.dataset.status = st;
-  tr.querySelector('.status-cell').innerHTML = statusBadge(st);
+const today=new Date().toISOString().slice(0,10);
+function getStatus(s,e){return e<today?'expired':s>today?'upcoming':'active';}
+function daysDiff(a,b){return Math.round((new Date(b)-new Date(a))/86400000);}
+const menuSet=new Set();
+document.querySelectorAll('.member-card').forEach(c=>menuSet.add(c.dataset.menu));
+const mf=document.getElementById('menu-filter');
+if(mf)[...menuSet].sort().forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;mf.appendChild(o);});
+document.querySelectorAll('.member-card').forEach(card=>{
+  const s=card.dataset.start,e=card.dataset.end,st=getStatus(s,e);
+  card.dataset.status=st;
+  if(st==='expired')card.classList.add('status-expired');
+  const badge=card.querySelector('.status-badge');
+  const map={active:['badge-active','유효'],expired:['badge-expired','만료'],upcoming:['badge-upcoming','예정']};
+  if(badge){badge.classList.add(map[st][0]);badge.textContent=map[st][1];}
+  const total=Math.max(1,daysDiff(s,e)),elapsed=daysDiff(s,today);
+  const pct=st==='expired'?100:st==='upcoming'?0:Math.min(100,Math.round(elapsed/total*100));
+  const fill=card.querySelector('.progress-fill');
+  fill.style.width=pct+'%';
+  if(st==='expired')fill.classList.add('expired');
+  if(st==='upcoming')fill.classList.add('upcoming');
+  const rem=daysDiff(today,e);
+  const dl=card.querySelector('.days-left'),dt=card.querySelector('.days-total');
+  if(dl)dl.textContent=st==='active'?'D-'+rem:st==='expired'?'만료 '+Math.abs(rem)+'일 경과':daysDiff(today,s)+'일 후 시작';
+  if(dt)dt.textContent='총 '+total+'일';
 });
-
-function filterTable() {
-  const storeVal  = (document.getElementById('store-filter')  || {value:''}).value;
-  const statusVal = (document.getElementById('status-filter') || {value:''}).value;
-  document.querySelectorAll('#mb-table tbody tr[data-start]').forEach(tr => {
-    const storeOk  = !storeVal  || tr.dataset.store  === storeVal;
-    const statusOk = !statusVal || tr.dataset.status === statusVal;
-    tr.style.display = (storeOk && statusOk) ? '' : 'none';
+function updateStats(){
+  let all=0,active=0,expired=0;
+  document.querySelectorAll('.member-card').forEach(c=>{
+    if(c.style.display==='none')return;
+    all++;if(c.dataset.status==='active')active++;if(c.dataset.status==='expired')expired++;
   });
+  document.getElementById('stat-all').textContent=all;
+  document.getElementById('stat-active').textContent=active;
+  document.getElementById('stat-expired').textContent=expired;
+  document.getElementById('result-count').textContent=all;
 }
-filterTable();
-
-// 종료일 자동 계산 (시작일 입력 시)
-const startInput = document.querySelector('input[name="start_date"]');
-const endInput   = document.querySelector('input[name="end_date"]');
-if (startInput && endInput) {
-  startInput.addEventListener('change', function() {
-    if (!endInput.value && this.value) {
-      const d = new Date(this.value);
-      d.setDate(d.getDate() + 29);
-      endInput.value = d.toISOString().slice(0, 10);
-    }
+function applyFilter(){
+  const sv=(document.getElementById('store-filter')||{value:''}).value;
+  const stv=(document.getElementById('status-filter')||{value:''}).value;
+  const mv=(document.getElementById('menu-filter')||{value:''}).value;
+  const pv=(document.getElementById('phone-search')||{value:''}).value.trim();
+  document.querySelectorAll('.member-card').forEach(c=>{
+    const ok=(!sv||c.dataset.store===sv)&&(!stv||c.dataset.status===stv)&&(!mv||c.dataset.menu===mv)&&(!pv||c.dataset.phone.includes(pv));
+    c.style.display=ok?'':'none';
   });
+  updateStats();
 }
+applyFilter();
 </script>
 {% endblock %}

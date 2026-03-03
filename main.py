@@ -315,8 +315,8 @@ def all_list_page(request: Request):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
-    # 점포 목록
-    cur.execute("SELECT id, name, location FROM stores")
+    # 점포 목록 (관리자용 id=0, 비공개 id=4 제외)
+    cur.execute("SELECT id, name, location FROM stores WHERE id NOT IN (0, 4)")
     stores = cur.fetchall()
 
     if not store_id or int(store_id) != 0:
