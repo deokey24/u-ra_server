@@ -53,7 +53,7 @@
   box-shadow: 0 2px 8px rgba(0,0,0,.07);
 }
 
-/* 카드 헤더: 번호 + 상태 */
+/* 카드 헤더 */
 .t-header {
   display: flex;
   align-items: center;
@@ -73,7 +73,6 @@
   font-size: 17px;
   font-weight: 700;
   color: #222;
-  line-height: 1;
 }
 
 .t-remain {
@@ -96,7 +95,7 @@
   gap: 10px;
 }
 
-/* 블라인드 버튼 행 */
+/* 블라인드 버튼 */
 .blind-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -116,25 +115,29 @@
 .btn-blind.close { background: #dc3545; color: #fff; }
 .btn-blind.close:active { background: #a71d2a; }
 
-/* 시간 추가 행 */
+/* 시간 추가 행 — 모든 요소 세로 중앙 정렬 */
 .time-row {
   display: flex;
-  align-items: center;
+  flex-direction: row;
+  align-items: center;        /* 핵심: 세로 중앙 */
   gap: 6px;
   background: #fafafa;
   border: 1px solid #efefef;
   border-radius: 10px;
   padding: 8px 10px;
+  min-height: 46px;           /* 높이 고정으로 정렬 안정화 */
 }
 .time-label {
   font-size: 12px;
   color: #888;
   font-weight: 600;
   white-space: nowrap;
-  margin-right: 2px;
+  line-height: 1;
+  align-self: center;
 }
 .step-btn {
-  width: 30px; height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   border: 1.5px solid #ddd;
   background: #fff;
@@ -148,23 +151,35 @@
   color: #444;
   line-height: 1;
   flex-shrink: 0;
+  align-self: center;
 }
 .step-btn:active { background: #f0f0f0; }
+
 .min-val {
-  min-width: 32px;
+  min-width: 28px;
   text-align: center;
   font-size: 15px;
   font-weight: 700;
   color: #222;
+  line-height: 1;
+  align-self: center;
 }
 .min-unit {
   font-size: 12px;
   color: #999;
-  margin-right: 2px;
+  line-height: 1;
+  align-self: center;
+}
+
+/* 적용 폼+버튼을 flex item으로 정렬 */
+.apply-form {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
 }
 .btn-apply {
-  margin-left: auto;
-  padding: 8px 16px;
+  height: 32px;
+  padding: 0 16px;
   background: #ff9800;
   color: #fff;
   border: none;
@@ -173,7 +188,9 @@
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .btn-apply:active { background: #e65100; }
 </style>
@@ -192,7 +209,6 @@
   {% for i in range(1, table_count + 1) %}
   <div class="t-card">
 
-    <!-- 헤더 -->
     <div class="t-header">
       <div class="ws-dot {{ 'alive' if alive_tables.get(i) else 'dead' }}"
            title="{{ 'WS 연결됨' if alive_tables.get(i) else 'WS 끊김' }}"></div>
@@ -205,30 +221,29 @@
       {% endif %}
     </div>
 
-    <!-- 바디 -->
     <div class="t-body">
 
-      <!-- 블라인드 버튼 -->
       <div class="blind-row">
         <form action="/blind/{{ store_id }}/{{ i }}/open" method="post"
-              onsubmit="return confirm('{{ i }}번 블라인드를 열까요?')">
+              onsubmit="return confirm('{{ i }}번 테이블 블라인드를 열까요?')">
           <button type="submit" class="btn-blind open">열기</button>
         </form>
         <form action="/blind/{{ store_id }}/{{ i }}/close" method="post"
-              onsubmit="return confirm('{{ i }}번 블라인드를 닫을까요?')">
+              onsubmit="return confirm('{{ i }}번 테이블 블라인드를 닫을까요?')">
           <button type="submit" class="btn-blind close">닫기</button>
         </form>
       </div>
 
-      <!-- 시간 추가 -->
       <div class="time-row">
         <span class="time-label">시간 추가</span>
-        <button type="button" class="step-btn" onclick="changeMin({{ i }},-5)">&#8722;</button>
+        <button type="button" class="step-btn" onclick="changeMin({{ i }}, -5)">&#8722;</button>
         <span class="min-val" id="min-{{ i }}">5</span>
         <span class="min-unit">분</span>
-        <button type="button" class="step-btn" onclick="changeMin({{ i }},5)">+</button>
-        <form action="/table/{{ store_id }}/{{ i }}/add_time" method="post"
-              onsubmit="syncMin({{ i }})">
+        <button type="button" class="step-btn" onclick="changeMin({{ i }}, 5)">+</button>
+        <form class="apply-form"
+              action="/table/{{ store_id }}/{{ i }}/add_time"
+              method="post"
+              onsubmit="return confirmAddTime(event, {{ i }})">
           <input type="hidden" name="minutes" id="hmin-{{ i }}" value="5">
           <button type="submit" class="btn-apply">적용</button>
         </form>
@@ -241,13 +256,18 @@
 
 <script>
 const minMap = {};
+
 function changeMin(t, d) {
   minMap[t] = Math.max(5, (minMap[t] || 5) + d);
   document.getElementById("min-" + t).textContent = minMap[t];
 }
-function syncMin(t) {
-  document.getElementById("hmin-" + t).value = minMap[t] || 5;
+
+function confirmAddTime(e, t) {
+  const mins = minMap[t] || 5;
+  document.getElementById("hmin-" + t).value = mins;
+  return confirm(t + "번 테이블에 " + mins + "분을 추가 하시겠습니까?");
 }
+
 setTimeout(() => location.reload(), 30000);
 </script>
 {% endblock %}
