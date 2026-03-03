@@ -1,99 +1,186 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-/* ── 페이지 기본 ── */
-.tbl-page { max-width:700px; margin:0 auto; padding:0 12px 40px; }
-.tbl-title { text-align:center; font-size:20px; font-weight:700; margin:16px 0 10px; }
+*, *::before, *::after { box-sizing: border-box; }
 
-/* ── ADB 배지 ── */
+.tbl-page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 12px 12px 48px;
+}
+
+.tbl-title {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 8px 0 14px;
+  color: #222;
+}
+
+/* ADB 배지 */
 .adb-badge {
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  margin:0 auto 20px; padding:7px 18px; border-radius:24px;
-  width:fit-content; font-size:13px; font-weight:700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 0 auto 18px;
+  padding: 6px 16px;
+  border-radius: 20px;
+  width: fit-content;
+  font-size: 13px;
+  font-weight: 700;
 }
-.adb-badge.ok   { background:#e8f8ee; border:1.5px solid #28a745; color:#1a7a35; }
-.adb-badge.ng   { background:#fff0f0; border:1.5px solid #dc3545; color:#a71d2a; }
-.adb-badge.unk  { background:#f4f4f4; border:1.5px solid #aaa;    color:#666; }
-.adb-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
-.adb-dot.ok  { background:#28a745; }
-.adb-dot.ng  { background:#dc3545; }
-.adb-dot.unk { background:#aaa; }
+.adb-badge.ok  { background:#e8f8ee; border:1.5px solid #28a745; color:#1a7a35; }
+.adb-badge.ng  { background:#fff0f0; border:1.5px solid #dc3545; color:#a71d2a; }
+.adb-badge.unk { background:#f4f4f4; border:1.5px solid #aaa;    color:#666; }
+.adb-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.adb-dot.ok  { background: #28a745; }
+.adb-dot.ng  { background: #dc3545; }
+.adb-dot.unk { background: #aaa; }
 
-/* ── 테이블 카드 ── */
+/* 카드 */
 .t-card {
-  background:#fff; border:1px solid #e0e0e0; border-radius:14px;
-  padding:14px 16px; margin-bottom:12px;
-  box-shadow:0 1px 4px rgba(0,0,0,.06);
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 16px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07);
 }
 
-/* 상단 행: dot + 상태박스 + 블라인드 버튼 */
-.t-top {
-  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+/* 카드 헤더: 번호 + 상태 */
+.t-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid #f0f0f0;
 }
-.ws-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-.ws-dot.alive { background:#28a745; }
-.ws-dot.dead  { background:#dc3545; }
-
-.t-status {
-  min-width:90px; text-align:center;
-  border:1px solid #ccc; border-radius:10px; padding:8px 10px;
-  font-weight:700; font-size:15px; background:#fff;
+.ws-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
-.t-status.active     { background:#b3e5fc; border-color:#039be5; }
-.t-status.active.low { background:#ffcdd2; border-color:#e53935; }
-.t-status small { display:block; font-size:11px; color:#555; font-weight:400; margin-top:2px; }
+.ws-dot.alive { background: #28a745; }
+.ws-dot.dead  { background: #dc3545; }
 
-.blind-group { display:flex; gap:8px; }
-.btn { padding:9px 16px; border:none; border-radius:8px;
-       font-size:14px; font-weight:700; cursor:pointer; width:auto; }
-.btn-open  { background:#28a745; color:#fff; }
-.btn-open:hover  { background:#1e7e34; }
-.btn-close { background:#dc3545; color:#fff; }
-.btn-close:hover { background:#a71d2a; }
-
-/* 하단 행: 시간 추가 */
-.t-bottom {
-  display:flex; align-items:center; gap:8px;
-  margin-top:12px; padding-top:10px;
-  border-top:1px dashed #eee; flex-wrap:wrap;
+.t-label {
+  font-size: 17px;
+  font-weight: 700;
+  color: #222;
+  line-height: 1;
 }
-.t-bottom label { font-size:13px; color:#555; font-weight:600; white-space:nowrap; }
 
+.t-remain {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.t-remain.active     { background: #e3f2fd; color: #0277bd; }
+.t-remain.active.low { background: #ffebee; color: #c62828; }
+.t-remain.idle       { background: #f5f5f5; color: #aaa; }
+
+/* 카드 바디 */
+.t-body {
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 블라인드 버튼 행 */
+.blind-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.btn-blind {
+  padding: 11px 0;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+}
+.btn-blind.open  { background: #28a745; color: #fff; }
+.btn-blind.open:active  { background: #1e7e34; }
+.btn-blind.close { background: #dc3545; color: #fff; }
+.btn-blind.close:active { background: #a71d2a; }
+
+/* 시간 추가 행 */
+.time-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fafafa;
+  border: 1px solid #efefef;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.time-label {
+  font-size: 12px;
+  color: #888;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-right: 2px;
+}
 .step-btn {
-  width:32px; height:32px; border-radius:7px;
-  border:1.5px solid #bbb; background:#fff;
-  font-size:17px; font-weight:700; cursor:pointer;
-  display:inline-flex; align-items:center; justify-content:center;
-  line-height:1; padding:0; color:#333;
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  border: 1.5px solid #ddd;
+  background: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #444;
+  line-height: 1;
+  flex-shrink: 0;
 }
-.step-btn:hover { background:#f0f0f0; border-color:#888; }
-
+.step-btn:active { background: #f0f0f0; }
 .min-val {
-  min-width:36px; text-align:center;
-  font-size:15px; font-weight:700; color:#333;
+  min-width: 32px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #222;
 }
-.min-unit { font-size:13px; color:#666; }
-
-.btn-add {
-  padding:8px 16px; background:#ff9800; color:#fff;
-  border:none; border-radius:8px; font-size:13px;
-  font-weight:700; cursor:pointer; width:auto; margin-left:4px;
+.min-unit {
+  font-size: 12px;
+  color: #999;
+  margin-right: 2px;
 }
-.btn-add:hover { background:#e65100; }
-
-/* 모바일 */
-@media (max-width:500px) {
-  .t-top { gap:8px; }
-  .btn   { padding:8px 12px; font-size:13px; }
-  .t-status { min-width:76px; font-size:13px; }
-  .btn-add { padding:8px 12px; }
+.btn-apply {
+  margin-left: auto;
+  padding: 8px 16px;
+  background: #ff9800;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
+.btn-apply:active { background: #e65100; }
 </style>
 
 <div class="tbl-page">
   <div class="tbl-title">{{ store_id }}번 지점 테이블 현황</div>
 
-  {# ADB 배지 #}
   {% if adb_connected == true %}
     <div class="adb-badge ok"><span class="adb-dot ok"></span>ADB 연결됨</div>
   {% elif adb_connected == false %}
@@ -105,48 +192,49 @@
   {% for i in range(1, table_count + 1) %}
   <div class="t-card">
 
-    {# 상단: 상태 + 블라인드 버튼 #}
-    <div class="t-top">
+    <!-- 헤더 -->
+    <div class="t-header">
       <div class="ws-dot {{ 'alive' if alive_tables.get(i) else 'dead' }}"
            title="{{ 'WS 연결됨' if alive_tables.get(i) else 'WS 끊김' }}"></div>
-
+      <span class="t-label">{{ i }}번 테이블</span>
       {% if i in active_tables %}
         {% set mins = active_tables[i] %}
-        <div class="t-status active {{ 'low' if mins < 5 else '' }}">
-          {{ i }}번<small>남은 {{ mins }}분</small>
-        </div>
+        <span class="t-remain active {{ 'low' if mins < 5 else '' }}">⏱ 남은 {{ mins }}분</span>
       {% else %}
-        <div class="t-status">
-          {{ i }}번<small style="color:#aaa;">대기중</small>
-        </div>
+        <span class="t-remain idle">대기중</span>
       {% endif %}
+    </div>
 
-      <div class="blind-group">
-        <form action="/blind/{{ store_id }}/{{ i }}/open" method="post" style="display:inline"
-              onsubmit="return confirm('{{ i }}번 테이블 블라인드를 열까요?')">
-          <button class="btn btn-open">열기</button>
+    <!-- 바디 -->
+    <div class="t-body">
+
+      <!-- 블라인드 버튼 -->
+      <div class="blind-row">
+        <form action="/blind/{{ store_id }}/{{ i }}/open" method="post"
+              onsubmit="return confirm('{{ i }}번 블라인드를 열까요?')">
+          <button type="submit" class="btn-blind open">열기</button>
         </form>
-        <form action="/blind/{{ store_id }}/{{ i }}/close" method="post" style="display:inline"
-              onsubmit="return confirm('{{ i }}번 테이블 블라인드를 닫을까요?')">
-          <button class="btn btn-close">닫기</button>
+        <form action="/blind/{{ store_id }}/{{ i }}/close" method="post"
+              onsubmit="return confirm('{{ i }}번 블라인드를 닫을까요?')">
+          <button type="submit" class="btn-blind close">닫기</button>
         </form>
       </div>
-    </div>
 
-    {# 하단: 시간 추가 #}
-    <div class="t-bottom">
-      <label>시간 추가</label>
-      <button type="button" class="step-btn" onclick="changeMin({{ i }},-5)">&#8722;</button>
-      <span class="min-val" id="min-{{ i }}">5</span>
-      <span class="min-unit">분</span>
-      <button type="button" class="step-btn" onclick="changeMin({{ i }},5)">+</button>
-      <form action="/table/{{ store_id }}/{{ i }}/add_time" method="post"
-            style="display:inline" onsubmit="syncMin({{ i }})">
-        <input type="hidden" name="minutes" id="hmin-{{ i }}" value="5">
-        <button type="submit" class="btn-add">적용</button>
-      </form>
-    </div>
+      <!-- 시간 추가 -->
+      <div class="time-row">
+        <span class="time-label">시간 추가</span>
+        <button type="button" class="step-btn" onclick="changeMin({{ i }},-5)">&#8722;</button>
+        <span class="min-val" id="min-{{ i }}">5</span>
+        <span class="min-unit">분</span>
+        <button type="button" class="step-btn" onclick="changeMin({{ i }},5)">+</button>
+        <form action="/table/{{ store_id }}/{{ i }}/add_time" method="post"
+              onsubmit="syncMin({{ i }})">
+          <input type="hidden" name="minutes" id="hmin-{{ i }}" value="5">
+          <button type="submit" class="btn-apply">적용</button>
+        </form>
+      </div>
 
+    </div>
   </div>
   {% endfor %}
 </div>
