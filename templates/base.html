@@ -29,7 +29,8 @@
     <a href="/admin">매출 내역</a>
     <a href="/table">테이블 현황</a>
     <a href="/store/menus">메뉴관리</a>
-    {% if store_id == 0 %}
+    <a href="/memberships">회원권 관리</a>
+    {% if store_id == 0 and user == "관리자" %}
     <a href="/stores">점포관리</a>
     <a href="/kiosk/config">키오스크 설정</a>
     <!-- <a href="/admin/all_list">전체매출</a> -->

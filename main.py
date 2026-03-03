@@ -79,6 +79,7 @@ app = FastAPI(lifespan=lifespan)
 crud.init_db()
 crud.migrate_db()
 crud.migrate_kiosk_config()
+crud.migrate_membership()
 
 
 
@@ -465,7 +466,8 @@ def store_menus_page(request: Request):
 
     # ✅ 메뉴 조회 (새 컬럼 포함)
     cur.execute("""
-        SELECT id, menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date
+        SELECT id, menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date,
+               is_membership, membership_days
         FROM store_menus
         WHERE store_id=?
         ORDER BY minutes
@@ -489,7 +491,8 @@ def api_get_menus(store_id: int):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date
+        SELECT id, menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date,
+               is_membership, membership_days
         FROM store_menus
         WHERE store_id=?
         ORDER BY minutes
@@ -510,6 +513,8 @@ def api_get_menus(store_id: int):
             "end_time": r[6],
             "start_date": r[7],
             "end_date": r[8],
+            "is_membership": bool(r[9]) if r[9] is not None else False,
+            "membership_days": r[10] or 30,
         })
 
     return {"store_id": store_id, "menus": menus}
@@ -528,16 +533,18 @@ def add_menu(
     end_date: Optional[str] = Form(None),
     start_time: Optional[str] = Form(None),
     end_time: Optional[str] = Form(None),
+    is_membership: Optional[int] = Form(0),
+    membership_days: Optional[int] = Form(30),
 ):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
         """
         INSERT INTO store_menus
-        (store_id, menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (store_id, menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date, is_membership, membership_days)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (store_id, menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date)
+        (store_id, menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date, is_membership or 0, membership_days or 30)
     )
     conn.commit()
     conn.close()
@@ -557,16 +564,20 @@ def update_menu_action(
     end_date: Optional[str] = Form(None),
     start_time: Optional[str] = Form(None),
     end_time: Optional[str] = Form(None),
+    is_membership: Optional[int] = Form(0),
+    membership_days: Optional[int] = Form(30),
 ):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
         """
         UPDATE store_menus
-        SET menu_name=?, price=?, minutes=?, always_visible=?, start_time=?, end_time=?, start_date=?, end_date=?
+        SET menu_name=?, price=?, minutes=?, always_visible=?, start_time=?, end_time=?, start_date=?, end_date=?,
+            is_membership=?, membership_days=?
         WHERE id=?
         """,
-        (menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date, menu_id)
+        (menu_name, price, minutes, always_visible, start_time, end_time, start_date, end_date,
+         is_membership or 0, membership_days or 30, menu_id)
     )
     conn.commit()
 
@@ -799,3 +810,95 @@ async def add_time(store_id: int, table_num: int, minutes: int = Form(...)):
 async def receive_adb_status(store_id: int, connected: str = Form(...)):
     adb_status_store[store_id] = connected.lower() in ("true", "1", "yes")
     return {"ok": True}
+
+
+# ══════════════════════════════════════════════════════════════
+# 회원권 관리
+# ══════════════════════════════════════════════════════════════
+
+def _get_session(request: Request):
+    raw_store = request.cookies.get("store_id")
+    raw_user  = request.cookies.get("session_name")
+    if raw_store is None or raw_user is None:
+        return None, None
+    try:
+        name = base64.b64decode(raw_user).decode("utf-8")
+    except Exception:
+        name = raw_user
+    return int(raw_store), name
+
+
+@app.get("/memberships")
+def memberships_page(request: Request):
+    store_id, name = _get_session(request)
+    if name is None:
+        return RedirectResponse(url="/", status_code=303)
+
+    # 관리자(0) → 전체, 지점 → 해당 지점만
+    rows = crud.list_memberships(None if store_id == 0 else store_id)
+
+    # 관리자용 지점 목록 (필터 드롭다운)
+    stores = []
+    if store_id == 0:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("SELECT id, name FROM stores WHERE id != 0 ORDER BY id")
+        stores = cur.fetchall()
+        conn.close()
+
+    return templates.TemplateResponse("memberships.html", {
+        "request":    request,
+        "user":       name,
+        "store_id":   store_id,
+        "memberships": rows,
+        "stores":     stores,
+    })
+
+
+@app.post("/membership/add")
+def membership_add(
+    request: Request,
+    store_id:   int = Form(...),
+    phone:      str = Form(...),
+    menu_name:  str = Form(...),
+    start_date: str = Form(...),
+    end_date:   str = Form(...),
+):
+    sess_store, name = _get_session(request)
+    if name is None:
+        return RedirectResponse(url="/", status_code=303)
+    # 지점 계정은 자기 지점만
+    if sess_store != 0:
+        store_id = sess_store
+    crud.add_membership(store_id, phone, menu_name, start_date, end_date)
+    return RedirectResponse(url="/memberships", status_code=303)
+
+
+@app.post("/membership/delete")
+def membership_delete(request: Request, mid: int = Form(...)):
+    _, name = _get_session(request)
+    if name is None:
+        return RedirectResponse(url="/", status_code=303)
+    crud.delete_membership(mid)
+    return RedirectResponse(url="/memberships", status_code=303)
+
+
+# ── 키오스크용 회원권 확인 API ────────────────────────────────
+@app.get("/api/membership/check")
+def api_membership_check(store_id: int, phone_last4: str):
+    """끝 4자리 + store_id → 유효한 회원권 존재 여부 반환."""
+    valid = crud.check_membership_valid(store_id, phone_last4)
+    return {"valid": valid}
+
+
+# ── 키오스크 결제 후 회원권 자동 등록 API ────────────────────
+@app.post("/api/membership/register")
+def api_membership_register(
+    store_id:   int = Form(...),
+    phone:      str = Form(...),
+    menu_name:  str = Form(...),
+    start_date: str = Form(...),
+    end_date:   str = Form(...),
+):
+    mid = crud.add_membership(store_id, phone, menu_name, start_date, end_date)
+    return {"status": "ok", "id": mid}

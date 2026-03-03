@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  table.mb { width:100%; border-collapse:collapse; font-size:13px; margin-bottom:20px; }
+  table.mb th, table.mb td { border:1px solid #ccc; padding:7px 8px; text-align:center; }
+  table.mb th { background:#eee; }
+  .badge-active   { background:#d4edda; color:#155724; border-radius:4px; padding:2px 7px; font-size:11px; }
+  .badge-expired  { background:#f8d7da; color:#721c24; border-radius:4px; padding:2px 7px; font-size:11px; }
+  .badge-upcoming { background:#fff3cd; color:#856404; border-radius:4px; padding:2px 7px; font-size:11px; }
+  .add-card { border:1px solid #ccc; border-radius:6px; padding:14px; background:#fafafa; max-width:480px; margin-bottom:24px; }
+  .add-card label { font-size:13px; display:flex; flex-direction:column; gap:3px; }
+  .add-card input, .add-card select { padding:5px; border:1px solid #bbb; border-radius:4px; font-size:13px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .filter-bar { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+</style>
+
+<h1 style="font-size:20px; margin-bottom:14px;">🎫 회원권 관리</h1>
+
+<!-- 회원권 추가 폼 -->
+<div class="add-card">
+  <h2 style="font-size:15px; margin-bottom:10px;">회원권 추가</h2>
+  <form method="post" action="/membership/add">
+    {% if store_id == 0 %}
+    <div style="margin-bottom:8px;">
+      <label>지점 선택
+        <select name="store_id" required>
+          {% for s in stores %}
+          <option value="{{ s[0] }}">{{ s[1] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    {% else %}
+    <input type="hidden" name="store_id" value="{{ store_id }}">
+    {% endif %}
+
+    <div class="grid2" style="margin-bottom:8px;">
+      <label>전화번호
+        <input type="text" name="phone" placeholder="01012345678" required>
+      </label>
+      <label>회원권명
+        <input type="text" name="menu_name" placeholder="예: 한달 이용권" required>
+      </label>
+      <label>시작일
+        <input type="date" name="start_date" required>
+      </label>
+      <label>종료일
+        <input type="date" name="end_date" required>
+      </label>
+    </div>
+
+    <button type="submit" style="width:100%; padding:7px; background:#4caf50; color:white; border:none; border-radius:4px; font-size:13px; cursor:pointer;">
+      추가
+    </button>
+  </form>
+</div>
+
+<!-- 필터 (관리자 전용) -->
+{% if store_id == 0 %}
+<div class="filter-bar">
+  <label style="font-size:13px;">지점 필터:
+    <select id="store-filter" onchange="filterTable()">
+      <option value="">전체</option>
+      {% for s in stores %}
+      <option value="{{ s[0] }}">{{ s[1] }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label style="font-size:13px;">상태:
+    <select id="status-filter" onchange="filterTable()">
+      <option value="">전체</option>
+      <option value="active">유효</option>
+      <option value="expired">만료</option>
+      <option value="upcoming">예정</option>
+    </select>
+  </label>
+</div>
+{% endif %}
+
+<!-- 회원권 목록 -->
+<table class="mb" id="mb-table">
+  <thead>
+    <tr>
+      <th>#</th>
+      {% if store_id == 0 %}<th>지점</th>{% endif %}
+      <th>전화번호</th>
+      <th>회원권명</th>
+      <th>시작일</th>
+      <th>종료일</th>
+      <th>상태</th>
+      <th>등록일</th>
+      <th>삭제</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for m in memberships %}
+    <tr data-store="{{ m.store_id }}" data-start="{{ m.start_date }}" data-end="{{ m.end_date }}">
+      <td>{{ m.id }}</td>
+      {% if store_id == 0 %}<td>{{ m.store_name or m.store_id }}</td>{% endif %}
+      <td>{{ m.phone }}</td>
+      <td>{{ m.menu_name }}</td>
+      <td>{{ m.start_date }}</td>
+      <td>{{ m.end_date }}</td>
+      <td class="status-cell"></td>
+      <td>{{ m.created_at[:10] }}</td>
+      <td>
+        <form method="post" action="/membership/delete" style="display:inline;" onsubmit="return confirm('삭제하시겠습니까?')">
+          <input type="hidden" name="mid" value="{{ m.id }}">
+          <button style="background:#f44336; color:white; border:none; border-radius:4px; padding:3px 10px; cursor:pointer; font-size:12px;">삭제</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9" style="color:#aaa; padding:20px;">등록된 회원권이 없습니다.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+const today = new Date().toISOString().slice(0, 10);
+
+function getStatus(start, end) {
+  if (end < today) return 'expired';
+  if (start > today) return 'upcoming';
+  return 'active';
+}
+
+function statusBadge(st) {
+  if (st === 'active')   return '<span class="badge-active">유효</span>';
+  if (st === 'expired')  return '<span class="badge-expired">만료</span>';
+  return '<span class="badge-upcoming">예정</span>';
+}
+
+// 상태 배지 초기 렌더링
+document.querySelectorAll('#mb-table tbody tr[data-start]').forEach(tr => {
+  const st = getStatus(tr.dataset.start, tr.dataset.end);
+  tr.dataset.status = st;
+  tr.querySelector('.status-cell').innerHTML = statusBadge(st);
+});
+
+function filterTable() {
+  const storeVal  = (document.getElementById('store-filter')  || {value:''}).value;
+  const statusVal = (document.getElementById('status-filter') || {value:''}).value;
+  document.querySelectorAll('#mb-table tbody tr[data-start]').forEach(tr => {
+    const storeOk  = !storeVal  || tr.dataset.store  === storeVal;
+    const statusOk = !statusVal || tr.dataset.status === statusVal;
+    tr.style.display = (storeOk && statusOk) ? '' : 'none';
+  });
+}
+filterTable();
+
+// 종료일 자동 계산 (시작일 입력 시)
+const startInput = document.querySelector('input[name="start_date"]');
+const endInput   = document.querySelector('input[name="end_date"]');
+if (startInput && endInput) {
+  startInput.addEventListener('change', function() {
+    if (!endInput.value && this.value) {
+      const d = new Date(this.value);
+      d.setDate(d.getDate() + 29);
+      endInput.value = d.toISOString().slice(0, 10);
+    }
+  });
+}
+</script>
+{% endblock %}

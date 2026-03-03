@@ -363,3 +363,104 @@ def extend_reservation_end_time(store_id: int, table_num: int, minutes: int) -> 
     conn.commit()
     conn.close()
     return True
+
+
+# ─────────────────────────────────────────────────────────────
+# membership CRUD
+# ─────────────────────────────────────────────────────────────
+
+def migrate_membership():
+    """memberships 테이블 생성 (없을 때만)."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS memberships (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            store_id    INTEGER NOT NULL,
+            phone       TEXT    NOT NULL,
+            menu_name   TEXT    NOT NULL,
+            start_date  TEXT    NOT NULL,
+            end_date    TEXT    NOT NULL,
+            created_at  TEXT    NOT NULL
+        )
+    """)
+    # store_menus 에 is_membership, membership_days 컬럼 추가
+    for sql in [
+        "ALTER TABLE store_menus ADD COLUMN is_membership INTEGER DEFAULT 0",
+        "ALTER TABLE store_menus ADD COLUMN membership_days INTEGER DEFAULT 30",
+    ]:
+        try:
+            cur.execute(sql)
+        except sqlite3.OperationalError:
+            pass
+    conn.commit()
+    conn.close()
+
+
+def add_membership(store_id: int, phone: str, menu_name: str, start_date: str, end_date: str) -> int:
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute(
+        """INSERT INTO memberships (store_id, phone, menu_name, start_date, end_date, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (store_id, phone, menu_name, start_date, end_date,
+         datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    )
+    new_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return new_id
+
+
+def list_memberships(store_id: int = None):
+    """store_id=None 이면 전체(관리자용), 아니면 해당 지점만."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    if store_id is None:
+        cur.execute("""
+            SELECT m.id, m.store_id, s.name, m.phone, m.menu_name,
+                   m.start_date, m.end_date, m.created_at
+            FROM memberships m
+            LEFT JOIN stores s ON s.id = m.store_id
+            ORDER BY m.id DESC
+        """)
+    else:
+        cur.execute("""
+            SELECT m.id, m.store_id, s.name, m.phone, m.menu_name,
+                   m.start_date, m.end_date, m.created_at
+            FROM memberships m
+            LEFT JOIN stores s ON s.id = m.store_id
+            WHERE m.store_id = ?
+            ORDER BY m.id DESC
+        """, (store_id,))
+    rows = cur.fetchall()
+    conn.close()
+    cols = ["id", "store_id", "store_name", "phone", "menu_name",
+            "start_date", "end_date", "created_at"]
+    return [dict(zip(cols, r)) for r in rows]
+
+
+def delete_membership(mid: int):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM memberships WHERE id=?", (mid,))
+    conn.commit()
+    conn.close()
+
+
+def check_membership_valid(store_id: int, phone_last4: str) -> bool:
+    """전화번호 끝 4자리 + store_id 로 유효한 회원권 확인."""
+    today = date.today().isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id FROM memberships
+        WHERE store_id = ?
+          AND phone LIKE ?
+          AND start_date <= ?
+          AND end_date   >= ?
+        LIMIT 1
+    """, (store_id, f"%{phone_last4}", today, today))
+    row = cur.fetchone()
+    conn.close()
+    return row is not None
