@@ -271,7 +271,7 @@ def get_kiosk_config(store_id: int):
     if not row:
         return None
     cols = ["store_id","store_name","table_count","blinds_json",
-            "table_reverse","sub_title","support_msg","night_notice","membership_popup_msg","updated_at"]
+            "table_reverse","sub_title","support_msg","night_notice","updated_at","membership_popup_msg"]
     return dict(zip(cols, row))
 
 
@@ -323,7 +323,7 @@ def list_all_kiosk_configs():
     conn.close()
     cols = ["store_id","store_name","table_count","blinds_json",
             "table_reverse","sub_title","support_msg","night_notice",
-            "updated_at","store_display_name"]
+            "updated_at","membership_popup_msg","store_display_name"]
     return [dict(zip(cols, r)) for r in rows]
 
 
