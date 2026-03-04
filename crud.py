@@ -249,9 +249,15 @@ def migrate_kiosk_config():
             sub_title       TEXT    DEFAULT \'이용권 구매 후 도어락과 블라인드가 금방 열립니다.\',
             support_msg     TEXT    DEFAULT \'\',
             night_notice    TEXT    DEFAULT \'\',
+            membership_popup_msg TEXT    DEFAULT \'\',
             updated_at      TEXT    DEFAULT \'\'
         )
     """)
+    # 기존 DB 마이그레이션: 컬럼 없으면 추가
+    try:
+        cur.execute("ALTER TABLE kiosk_config ADD COLUMN membership_popup_msg TEXT DEFAULT ''")
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 
@@ -265,7 +271,7 @@ def get_kiosk_config(store_id: int):
     if not row:
         return None
     cols = ["store_id","store_name","table_count","blinds_json",
-            "table_reverse","sub_title","support_msg","night_notice","updated_at"]
+            "table_reverse","sub_title","support_msg","night_notice","membership_popup_msg","updated_at"]
     return dict(zip(cols, row))
 
 
@@ -276,17 +282,18 @@ def upsert_kiosk_config(store_id: int, data: dict):
     cur.execute("""
         INSERT INTO kiosk_config
             (store_id, store_name, table_count, blinds_json, table_reverse,
-             sub_title, support_msg, night_notice, updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?)
+             sub_title, support_msg, night_notice, membership_popup_msg, updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(store_id) DO UPDATE SET
-            store_name    = excluded.store_name,
-            table_count   = excluded.table_count,
-            blinds_json   = excluded.blinds_json,
-            table_reverse = excluded.table_reverse,
-            sub_title     = excluded.sub_title,
-            support_msg   = excluded.support_msg,
-            night_notice  = excluded.night_notice,
-            updated_at    = excluded.updated_at
+            store_name           = excluded.store_name,
+            table_count          = excluded.table_count,
+            blinds_json          = excluded.blinds_json,
+            table_reverse        = excluded.table_reverse,
+            sub_title            = excluded.sub_title,
+            support_msg          = excluded.support_msg,
+            night_notice         = excluded.night_notice,
+            membership_popup_msg = excluded.membership_popup_msg,
+            updated_at           = excluded.updated_at
     """, (
         store_id,
         data.get("store_name", ""),
@@ -296,6 +303,7 @@ def upsert_kiosk_config(store_id: int, data: dict):
         data.get("sub_title", "이용권 구매 후 도어락과 블라인드가 금방 열립니다."),
         data.get("support_msg", ""),
         data.get("night_notice", ""),
+        data.get("membership_popup_msg", ""),
         datetime.now().isoformat(timespec="seconds"),
     ))
     conn.commit()

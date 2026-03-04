@@ -527,7 +527,7 @@ def add_menu(
     store_id: int = Form(...),
     menu_name: str = Form(...),
     price: int = Form(...),
-    minutes: Optional[int] = Form(0),  # 회원권 상품은 0
+    minutes: int = Form(...),
     always_visible: Optional[int] = Form(0),
     start_date: Optional[str] = Form(None),
     end_date: Optional[str] = Form(None),
@@ -768,6 +768,7 @@ def kiosk_config_save(
     sub_title:    str = Form(""),
     support_msg:  str = Form(""),
     night_notice: str = Form(""),
+    membership_popup_msg: str = Form(""),
 ):
     """키오스크 설정 저장."""
     if not _require_admin(request):
@@ -781,6 +782,7 @@ def kiosk_config_save(
         "sub_title":     sub_title,
         "support_msg":   support_msg,
         "night_notice":  night_notice,
+        "membership_popup_msg": membership_popup_msg,
     })
     return RedirectResponse(url="/kiosk/config", status_code=303)
 
