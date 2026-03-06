@@ -140,7 +140,9 @@ def add_drink_order(store_id: int, menu_name: str, price: int,
             start_time, end_time, auth_no, order_type, tran_date)
            VALUES (?,?,?,?,?,?,?,?,?,?)""",
         (store_id, 0, menu_name, menu_name, price,
-         ordered_at, ordered_at, auth_no, "drink", tran_date),
+         ordered_at.replace("T", " ")[:19],   # strftime 호환 형식으로 통일
+         ordered_at.replace("T", " ")[:19],
+         auth_no, "drink", tran_date),
     )
     conn.commit()
     conn.close()
