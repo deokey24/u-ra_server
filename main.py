@@ -893,6 +893,35 @@ def api_membership_check(store_id: int, phone_last4: str):
     return {"valid": valid}
 
 
+# ── 음료/간식 주문 수신 API ──────────────────────────────────
+@app.post("/api/drink-orders")
+async def api_drink_order(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid json"}, status_code=400)
+
+    store_id   = body.get("store_id")
+    menu_name  = body.get("menu_name", "")
+    price      = body.get("price", 0)
+    auth_no    = body.get("auth_no", "")
+    tran_date  = body.get("tran_date", "")
+    ordered_at = body.get("ordered_at", datetime.now().isoformat())
+
+    if not store_id:
+        return JSONResponse({"error": "store_id required"}, status_code=400)
+
+    crud.add_drink_order(
+        store_id=int(store_id),
+        menu_name=menu_name,
+        price=int(price),
+        auth_no=str(auth_no),
+        tran_date=str(tran_date),
+        ordered_at=ordered_at,
+    )
+    return {"status": "ok"}
+
+
 # ── 키오스크 결제 후 회원권 자동 등록 API ────────────────────
 @app.post("/api/membership/register")
 def api_membership_register(

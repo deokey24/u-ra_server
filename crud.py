@@ -97,7 +97,9 @@ def migrate_db():
         "ALTER TABLE store_menus ADD COLUMN start_time TEXT",  # HH:MM
         "ALTER TABLE store_menus ADD COLUMN end_time TEXT",    # HH:MM
         "ALTER TABLE store_menus ADD COLUMN start_date TEXT",  # YYYY-MM-DD
-        "ALTER TABLE store_menus ADD COLUMN end_date TEXT"     # YYYY-MM-DD
+        "ALTER TABLE store_menus ADD COLUMN end_date TEXT",    # YYYY-MM-DD
+        "ALTER TABLE reservations ADD COLUMN order_type TEXT DEFAULT 'table'",
+        "ALTER TABLE reservations ADD COLUMN tran_date TEXT DEFAULT ''",
     ]
 
     for sql in migrations:
@@ -118,6 +120,27 @@ def add_reservation(store_id, table_num, phone, menu_name, price, start_time, en
     cur.execute(
         "INSERT INTO reservations(store_id, table_num, phone, menu_name, price, start_time, end_time, auth_no) VALUES(?,?,?,?,?,?,?,?)",
         (store_id, table_num, phone, menu_name, price, start_time, end_time, auth_no),
+    )
+    conn.commit()
+    conn.close()
+
+
+def add_drink_order(store_id: int, menu_name: str, price: int,
+                    auth_no: str, tran_date: str, ordered_at: str):
+    """음료/간식 주문을 reservations 테이블에 저장.
+    - table_num = 0  (실제 테이블 아님을 구분)
+    - phone = menu_name (관리자 UI 전화번호 칸에 메뉴명 표시)
+    - order_type = 'drink'
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute(
+        """INSERT INTO reservations
+           (store_id, table_num, phone, menu_name, price,
+            start_time, end_time, auth_no, order_type, tran_date)
+           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+        (store_id, 0, menu_name, menu_name, price,
+         ordered_at, ordered_at, auth_no, "drink", tran_date),
     )
     conn.commit()
     conn.close()
