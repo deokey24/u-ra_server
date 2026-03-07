@@ -195,12 +195,11 @@ def api_reservations_range(request: Request, start: str, end: str, store_id: int
         if not store_id:
             return JSONResponse({"error": "관리자는 store_id 필요"}, status_code=400)
         target_store_id = store_id
+        # all_list(관리자 조회)에서 store_id=4 는 매출을 항상 0으로 반환
+        if target_store_id == 4:
+            return JSONResponse([])
     else:
         target_store_id = cookie_store_id
-
-    # store_id=4 는 드롭다운 노출은 되지만 매출은 항상 0으로 반환
-    if target_store_id == 4:
-        return JSONResponse([])
 
     rows = crud.list_reservations_by_range(start, end, target_store_id)
     return JSONResponse(rows)
